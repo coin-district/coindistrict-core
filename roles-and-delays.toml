@@ -1,0 +1,55 @@
+[executionDelaysSeconds]
+ADMIN_ROLE = 259200
+UPGRADER_ROLE = 172800
+SHARE_DEPLOYER_ROLE = 86400
+SALES_OPERATOR_ROLE = 86400
+SALES_CONFIG_ROLE = 172800
+FUNDS_ADMIN_ROLE = 86400
+FIAT_ORDER_ROLE = 86400
+PAUSER_ROLE = 86400
+MINTER_ROLE = 86400
+BURNER_ROLE = 86400
+FREEZER_ROLE = 86400
+FORCE_ROLE = 86400
+RECOVERY_ROLE = 86400
+
+[permissions.Factory]
+upgradeTo = "UPGRADER_ROLE"
+upgradeToAndCall = "UPGRADER_ROLE"
+editMaxSupplyModule = "ADMIN_ROLE"
+deployShareSuite = "ADMIN_ROLE"
+createShare = "SHARE_DEPLOYER_ROLE"
+
+[permissions.SalesManager]
+upgradeTo = "UPGRADER_ROLE"
+upgradeToAndCall = "UPGRADER_ROLE"
+rescueTokens = "FUNDS_ADMIN_ROLE"
+withdrawFunds = "FUNDS_ADMIN_ROLE"
+updateSaleFundsRecipient = "FUNDS_ADMIN_ROLE"
+setAllowedPaymentToken = "SALES_CONFIG_ROLE"
+setPaymentTokenOracle = "SALES_CONFIG_ROLE"
+setMaxOracleDelaySeconds = "SALES_CONFIG_ROLE"
+setEmergencyPause = "SALES_OPERATOR_ROLE"
+unsetEmergencyPause = "SALES_OPERATOR_ROLE"
+createSale = "SALES_OPERATOR_ROLE"
+cancelSale = "SALES_OPERATOR_ROLE"
+pauseSale = "SALES_OPERATOR_ROLE"
+unpauseSale = "SALES_OPERATOR_ROLE"
+updateSalePriceUsdPerShare = "SALES_OPERATOR_ROLE"
+updateSaleDeadline = "SALES_OPERATOR_ROLE"
+updateSalePaymentTokensAllowed = "SALES_OPERATOR_ROLE"
+fulfillFiatOrder = "FIAT_ORDER_ROLE"
+
+[permissions.TokenController]
+upgradeTo = "UPGRADER_ROLE"
+upgradeToAndCall = "UPGRADER_ROLE"
+setTokenCaps = "ADMIN_ROLE"
+setTokenCapsInitial = "SHARE_DEPLOYER_ROLE"
+pause = "PAUSER_ROLE"
+unpause = "PAUSER_ROLE"
+recover = "RECOVERY_ROLE"
+mint = "MINTER_ROLE"
+burn = "BURNER_ROLE"
+forceTransfer = "FORCE_ROLE"
+setFrozen = "FREEZER_ROLE"
+

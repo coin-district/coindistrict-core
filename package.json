@@ -1,0 +1,22 @@
+{
+  "name": "@coindistrict/coindistrict-core",
+  "version": "0.16.0",
+  "private": false,
+  "description": "Foundry-based ERC-3643 smart contracts for CoinDistrict",
+  "license": "GPL-3.0",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "lint": "prettier . --check"
+  },
+  "files": [
+    "contracts",
+    "foundry.toml",
+    "remappings.txt",
+    "foundry.lock"
+  ],
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "prettier-plugin-solidity": "2.1.0"
+  }
+}

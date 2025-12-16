@@ -1,0 +1,364 @@
+//SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.17;
+
+/**
+ * @title ISalesManager
+ * @author CoinDistrict
+ * @dev Version: 0.16.0
+ * @notice Public ABI for primary sales of ERC-3643 shares against ERC20 payment tokens
+ * @dev
+ * - Amounts for shares are expressed in the share token's smallest units (10^decimals)
+ * - `priceUsdPerShare` must be provided in USD scaled to 8 decimals (1e8) per 1 full share (10^shareDecimals)
+ *   e.g. `$5` should be passed as `5 * 100_000_000`
+ *   If you start from a payment token amount with `d` decimals (e.g. USDC has 6), convert with
+ *   `priceUsdPerShare = tokenAmount * 10^(8 - d)` so the value matches Chainlink's 1e8 pricing
+ * - Prices are converted to payment tokens using Chainlink oracles at purchase time
+ * - For role values, see Governance.sol constants
+ */
+interface ISalesManager {
+    /// @dev Sale configuration and accounting
+    struct Sale {
+        address share; // ERC-3643 share address
+        address[] paymentTokensAllowed; // ERC20 payment tokens allowed for this sale
+        address fundsRecipient; // address receiving proceeds
+        uint256 remainingSupply; // remaining amount in share smallest units
+        uint256 priceUsdPerShare; // USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+        uint64 deadline; // unix timestamp (seconds)
+        uint8 shareDecimals; // cached decimals from the share token
+        bool active; // whether the sale is active
+        bool paused; // pausable flag (does not cancel the sale)
+    }
+
+    /// @notice Emitted when a share is purchased
+    /// @param saleId The sale identifier
+    /// @param buyer The msg.sender paying the payment token
+    /// @param recipient The address receiving the minted shares
+    /// @param paymentToken The payment token used for this purchase
+    /// @param amount Amount of shares minted (smallest units)
+    /// @param paidTokenAmount Payment token amount paid (smallest units)
+    event SharePurchase(
+        uint256 indexed saleId,
+        address indexed buyer,
+        address indexed recipient,
+        address paymentToken,
+        uint256 amount,
+        uint256 paidTokenAmount
+    );
+
+    /// @notice Emitted when a new sale is created
+    /// @param saleId The newly created sale identifier
+    /// @param share The ERC-3643 token being sold
+    /// @param paymentTokensAllowed The ERC20 payment tokens allowed for this sale
+    /// @param fundsRecipient The treasury address receiving proceeds
+    /// @param saleSupply Total initial sale supply (in share smallest units)
+    /// @param priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+    /// @param deadline Unix timestamp when the sale ends
+    /// @param shareDecimals Cached decimals of the share token
+    event SaleCreated(
+        uint256 indexed saleId,
+        address indexed share,
+        address[] paymentTokensAllowed,
+        address fundsRecipient,
+        uint256 saleSupply,
+        uint256 priceUsdPerShare,
+        uint64 deadline,
+        uint8 shareDecimals
+    );
+
+    /// @notice Emitted when a sale is cancelled (cannot be resumed)
+    event SaleCancelled(uint256 indexed saleId);
+
+    /// @notice Emitted when the funds recipient is changed for a sale
+    /// @param saleId The sale identifier
+    /// @param oldRecipient Previous recipient
+    /// @param newRecipient New recipient
+    event SaleFundsRecipientUpdated(uint256 indexed saleId, address oldRecipient, address newRecipient);
+
+    /// @notice Emitted when the payment tokens allowed for a sale are updated
+    /// @param saleId The sale identifier
+    /// @param oldPaymentTokensAllowed Previous list of payment tokens
+    /// @param newPaymentTokensAllowed New list of payment tokens
+    event SalePaymentTokensAllowedUpdated(
+        uint256 indexed saleId,
+        address[] oldPaymentTokensAllowed,
+        address[] newPaymentTokensAllowed
+    );
+
+    /// @notice Emitted when the USD price per share for a sale is updated
+    /// @param saleId The sale identifier
+    /// @param oldPriceUsdPerShare Previous USD price per share (1e8)
+    /// @param newPriceUsdPerShare New USD price per share (1e8)
+    event SalePriceUsdPerShareUpdated(uint256 indexed saleId, uint256 oldPriceUsdPerShare, uint256 newPriceUsdPerShare);
+
+    /// @notice Emitted when the deadline for a sale is updated
+    /// @param saleId The sale identifier
+    /// @param oldDeadline Previous deadline timestamp
+    /// @param newDeadline New deadline timestamp
+    event SaleDeadlineUpdated(uint256 indexed saleId, uint64 oldDeadline, uint64 newDeadline);
+
+    /// @notice Emitted when a sale is paused
+    event SalePaused(uint256 indexed saleId);
+
+    /// @notice Emitted when a sale is unpaused
+    event SaleUnpaused(uint256 indexed saleId);
+
+    /// @notice Emitted when an off-chain (fiat/OTC) order is fulfilled by the owner
+    /// @param saleId The sale identifier
+    /// @param recipient The address receiving the minted shares
+    /// @param amount Amount of shares minted (smallest units)
+    /// @param orderRef Off-chain reference identifier
+    event FiatOrderFulfilled(
+        uint256 indexed saleId,
+        address indexed recipient,
+        uint256 amount,
+        bytes32 indexed orderRef
+    );
+
+    /// @notice Emitted when an address is added to or removed from the payment token allowlist
+    /// @param paymentToken The ERC20 token address
+    /// @param allowed Whether the token is allowed
+    event PaymentTokenAllowed(address indexed paymentToken, bool allowed);
+
+    /// @notice Emitted when a payment token oracle is set or updated
+    /// @param paymentToken The ERC20 token address
+    /// @param aggregator The Chainlink aggregator address (address(0) to remove)
+    event PaymentTokenOracleSet(address indexed paymentToken, address aggregator);
+
+    /// @notice Emitted when the maximum oracle delay is updated
+    /// @param oldDelay Previous delay in seconds
+    /// @param newDelay New delay in seconds
+    event MaxOracleDelayUpdated(uint256 oldDelay, uint256 newDelay);
+
+    /// @notice Emitted when funds are withdrawn to treasury or another recipient
+    /// @param token The ERC20 token withdrawn
+    /// @param to The recipient of the funds
+    /// @param amount The amount transferred
+    event FundsWithdrawn(address indexed token, address indexed to, uint256 amount);
+
+    /// @notice Emitted when tokens are rescued via {rescueTokens}
+    /// @param token The ERC20 token rescued
+    /// @param to The recipient of the rescued tokens
+    /// @param amount The amount transferred
+    event TokensRescued(address indexed token, address indexed to, uint256 amount);
+
+    /// @notice Emitted when the global emergency pause state is changed
+    /// @param paused Whether the contract is now paused (true) or unpaused (false)
+    event EmergencyPauseSet(bool paused);
+
+    /// @notice Returns the total number of sales created so far
+    function saleCount() external view returns (uint256);
+
+    /// @notice Returns the sale configuration and current state
+    /// @param saleId The sale identifier
+    /// @return share The ERC-3643 token address
+    /// @return paymentTokensAllowed The ERC20 payment tokens allowed for this sale
+    /// @return fundsRecipient The treasury address for proceeds
+    /// @return remainingSupply Remaining sale supply (smallest units)
+    /// @return priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+    /// @return deadline Unix timestamp for sale end
+    /// @return shareDecimals Cached decimals of the share
+    /// @return active Whether the sale is active
+    /// @return paused Whether the sale is paused
+    function sales(
+        uint256 saleId
+    )
+        external
+        view
+        returns (
+            address share,
+            address[] memory paymentTokensAllowed,
+            address fundsRecipient,
+            uint256 remainingSupply,
+            uint256 priceUsdPerShare,
+            uint64 deadline,
+            uint8 shareDecimals,
+            bool active,
+            bool paused
+        );
+
+    /// @notice Total amount sold for a sale (smallest units)
+    /// @param saleId The sale identifier
+    /// @return sold Total minted amount via this sale so far
+    function saleIdToSold(uint256 saleId) external view returns (uint256);
+
+    /// @notice Get the total supply allocated for a sale (smallest units)
+    /// @dev Calculated as remainingSupply + saleIdToSold
+    /// @param saleId The sale identifier
+    /// @return totalSupply Total supply allocated for this sale
+    function getSaleTotalSupply(uint256 saleId) external view returns (uint256 totalSupply);
+
+    /// @notice Get the remaining supply available for a sale (smallest units)
+    /// @param saleId The sale identifier
+    /// @return remainingSupply Remaining supply available for purchase
+    function getSaleRemainingSupply(uint256 saleId) external view returns (uint256 remainingSupply);
+
+    /// @notice Returns whether a payment token is allowlisted
+    /// @param token The ERC20 payment token address
+    function isPaymentTokenAllowed(address token) external view returns (bool);
+
+    /// @notice Create a new sale for a given ERC-3643 token
+    /// @dev Requires SALES_OPERATOR_ROLE
+    /// @dev Reverts if `_deadline <= block.timestamp`, `_saleSupply == 0`, `_priceUsdPerShare == 0`, or `_paymentTokensAllowed` is empty
+    /// @dev All payment tokens in `_paymentTokensAllowed` must be globally allowlisted and have oracles configured
+    /// @param _share ERC-3643 share address (manager must be agent on this token)
+    /// @param _paymentTokensAllowed ERC20 payment tokens allowed for this sale (must be non-empty and all allowlisted with oracles)
+    /// @param _fundsRecipient Address receiving proceeds
+    /// @param _saleSupply Total sale supply (smallest units)
+    /// @param _priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+    /// @param _deadline Unix timestamp when sale ends
+    /// @return saleId The created sale identifier
+    function createSale(
+        address _share,
+        address[] calldata _paymentTokensAllowed,
+        address _fundsRecipient,
+        uint256 _saleSupply,
+        uint256 _priceUsdPerShare,
+        uint64 _deadline
+    ) external returns (uint256 saleId);
+
+    /// @notice Buy shares from an active sale
+    /// @dev Requires ERC20 allowance for the calculated payment amount. Mints shares to `_to` on success.
+    /// @dev Payment token must be allowlisted and have an oracle configured.
+    /// @param _saleId The sale identifier
+    /// @param _amount Amount to buy (smallest units)
+    /// @param _to Recipient of minted shares
+    /// @param _paymentToken The payment token to use for this purchase (must be allowlisted with oracle)
+    /// @param _maxPayment Maximum payment token amount willing to pay (slippage protection)
+    function buy(uint256 _saleId, uint256 _amount, address _to, address _paymentToken, uint256 _maxPayment) external;
+
+    /**
+     * @notice Cancel a sale permanently
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @param _saleId The sale identifier
+     */
+    function cancelSale(uint256 _saleId) external;
+
+    /**
+     * @notice Pause a sale (can be resumed with `unpauseSale`)
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @param _saleId The sale identifier
+     */
+    function pauseSale(uint256 _saleId) external;
+
+    /**
+     * @notice Unpause a previously paused sale
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @param _saleId The sale identifier
+     */
+    function unpauseSale(uint256 _saleId) external;
+
+    /**
+     * @notice Update the funds recipient for a sale
+     * @dev Requires FUNDS_ADMIN_ROLE
+     * @param _saleId The sale identifier
+     * @param _newRecipient The new recipient address
+     */
+    function updateSaleFundsRecipient(uint256 _saleId, address _newRecipient) external;
+
+    /**
+     * @notice Replace the payment tokens allowed for a sale
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @dev All tokens in `_newPaymentTokensAllowed` must be globally allowlisted and have oracles configured
+     * @param _saleId The sale identifier
+     * @param _newPaymentTokensAllowed The new list of payment tokens allowed for this sale
+     */
+    function updateSalePaymentTokensAllowed(uint256 _saleId, address[] calldata _newPaymentTokensAllowed) external;
+
+    /**
+     * @notice Update the USD price per share for a sale
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @param _saleId The sale identifier
+     * @param _newPriceUsdPerShare The new USD price per share (1e8) for a full share (10^shareDecimals)
+     */
+    function updateSalePriceUsdPerShare(uint256 _saleId, uint256 _newPriceUsdPerShare) external;
+
+    /**
+     * @notice Update the deadline for a sale
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @param _saleId The sale identifier
+     * @param _newDeadline The new deadline timestamp (must be in the future)
+     */
+    function updateSaleDeadline(uint256 _saleId, uint256 _newDeadline) external;
+
+    /**
+     * @notice Fulfill an off-chain (fiat/OTC) order without ERC20 transfer
+     * @dev Requires FIAT_ORDER_ROLE
+     * @dev Mints and updates accounting; applicable compliance checks still apply via token
+     * @param _saleId The sale identifier
+     * @param _amount Amount to mint (smallest units)
+     * @param _to Recipient of minted shares
+     * @param _reference Off-chain order reference
+     */
+    function fulfillFiatOrder(uint256 _saleId, uint256 _amount, address _to, bytes32 _reference) external;
+
+    /**
+     * @notice Recover any ERC20 mistakenly sent to this contract
+     * @dev Requires FUNDS_ADMIN_ROLE
+     * @param _erc20 The ERC20 token address
+     * @param _to Recipient of recovered tokens
+     * @param _amount Amount to transfer
+     */
+    function rescueTokens(address _erc20, address _to, uint256 _amount) external;
+
+    /**
+     * @notice Allow or disallow a payment token for use in new sales (allowlist is always enforced)
+     * @dev Requires SALES_CONFIG_ROLE
+     * @param paymentToken The ERC20 token address
+     * @param allowed True to allow, false to disallow
+     */
+    function setAllowedPaymentToken(address paymentToken, bool allowed) external;
+
+    /**
+     * @notice Withdraw funds for allowlisted tokens
+     * @dev Requires FUNDS_ADMIN_ROLE
+     * @dev Only allowlisted tokens can be withdrawn
+     * @param tokens The ERC20 token addresses (must be allowlisted)
+     * @param to Recipient of withdrawn funds
+     * @param amounts Amounts to withdraw per token; must match `tokens.length`
+     */
+    function withdrawFunds(address[] calldata tokens, address to, uint256[] calldata amounts) external;
+
+    /**
+     * @notice Set or update the Chainlink oracle aggregator for a payment token
+     * @dev Requires SALES_CONFIG_ROLE
+     * @dev Set aggregator to address(0) to remove
+     * @param paymentToken The ERC20 payment token address
+     * @param aggregator The Chainlink AggregatorV3Interface address (address(0) to remove)
+     */
+    function setPaymentTokenOracle(address paymentToken, address aggregator) external;
+
+    /**
+     * @notice Set the maximum allowed delay for oracle price updates
+     * @dev Requires SALES_CONFIG_ROLE
+     * @dev Stale prices beyond this delay will revert purchases
+     * @param seconds_ Maximum delay in seconds
+     */
+    function setMaxOracleDelaySeconds(uint256 seconds_) external;
+
+    /**
+     * @notice Pause all sales immediately
+     * @dev Requires SALES_OPERATOR_ROLE
+     * @dev When paused, all buy() and fulfillFiatOrder() operations are blocked
+     * @dev Functions are split to enable different delays for each function
+     * /
+    function setEmergencyPause() external;
+
+    /**
+     * @notice Unpause all sales
+     * @dev Requires SALES_OPERATOR_ROLE
+     */
+    function unsetEmergencyPause() external;
+
+    /// @notice Get the current global emergency pause state
+    /// @return paused Whether the contract is globally paused
+    function emergencyPaused() external view returns (bool paused);
+
+    /// @notice Get the oracle aggregator address for a payment token
+    /// @param paymentToken The ERC20 payment token address
+    /// @return aggregator The Chainlink aggregator address, or address(0) if not set
+    function paymentTokenToUsdAggregator(address paymentToken) external view returns (address aggregator);
+
+    /// @notice Get the maximum allowed oracle delay in seconds
+    /// @return seconds_ Maximum delay in seconds
+    function maxOracleDelaySeconds() external view returns (uint256 seconds_);
+}
