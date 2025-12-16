@@ -13,7 +13,8 @@
     "contracts",
     "foundry.toml",
     "remappings.txt",
-    "foundry.lock"
+    "foundry.lock",
+    "config"
   ],
   "devDependencies": {
     "prettier": "3.6.2",
