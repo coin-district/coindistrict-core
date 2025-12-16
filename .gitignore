@@ -1,12 +1,23 @@
+# Foundry
 out/
 cache/
 broadcast/
-dependencies/
+
+# Environment
 .env
-.env
+
+# Node (only if used for tooling)
 node_modules/
-artifacts/
-cache/
-typechain-types/
-dist/
-.openzeppelin/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Prevent nested git metadata from dependencies
+lib/**/.git
+lib/**/.gitmodules
+lib/**/.gitignore
+lib/**/out/
+lib/**/cache/
+lib/**/broadcast/
