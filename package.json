@@ -7,11 +7,14 @@
   "scripts": {
     "install": "forge install",
     "build": "forge build",
+    "build:abis": "bash scripts/generate-abis.sh",
+    "prepublishOnly": "pnpm build && pnpm build:abis",
     "test": "forge test",
     "lint": "prettier . --check"
   },
   "files": [
     "contracts",
+    "abis",
     "foundry.toml",
     "remappings.txt",
     "foundry.lock",

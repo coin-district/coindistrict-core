@@ -1,6 +1,10 @@
 # Foundry
 cache/
 broadcast/
+out/
+
+# Generated ABIs are committed (for package consumers)
+!abis/
 
 # Environment
 .env
