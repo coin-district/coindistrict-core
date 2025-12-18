@@ -15,7 +15,8 @@
     "foundry.toml",
     "remappings.txt",
     "foundry.lock",
-    "config"
+    "config",
+    "out"
   ],
   "devDependencies": {
     "prettier": "3.6.2",
