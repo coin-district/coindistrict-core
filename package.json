@@ -1,6 +1,6 @@
 {
-  "name": "@coindistrict/coindistrict-core",
-  "version": "0.16.0",
+  "name": "@coin-district/coindistrict-core",
+  "version": "0.19.0",
   "private": false,
   "description": "Foundry-based ERC-3643 smart contracts for CoinDistrict",
   "license": "GPL-3.0",
