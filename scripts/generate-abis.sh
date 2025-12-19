@@ -26,6 +26,8 @@ CONTRACTS=(
   "Gateway"
   "ClaimIssuer"
   "Identity"
+  "Ownable"
+  "AccessManager"
   # Interfaces
   "IFactory"
   "ISalesManager"
@@ -38,6 +40,7 @@ CONTRACTS=(
   "IIdFactory"
   "IClaimIssuer"
   "IIdentity"
+  "IAccessManager"
 )
 
 SUCCESS_COUNT=0
