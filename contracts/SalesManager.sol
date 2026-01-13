@@ -349,6 +349,8 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function rescueTokens(address _erc20, address _to, uint256 _amount) external onlyGov {
         require(_to != address(0), 'Rescue_InvalidRecipient');
+        require(!allowedPaymentToken[_erc20], 'Rescue_UseWithdrawFundsForPaymentTokens');
+
         IERC20(_erc20).safeTransfer(_to, _amount);
         emit TokensRescued(_erc20, _to, _amount);
     }

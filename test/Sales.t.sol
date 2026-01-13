@@ -377,6 +377,211 @@ contract SalesTest is Test, ProtocolFixture {
         assertEq(remaining, 40);
     }
 
+    function test_rescueTokens_rejects_allowed_payment_tokens() public {
+        // Setup: Create an allowed payment token
+        MockToken allowedToken = new MockToken('USDC', 'USDC', 6);
+        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(allowedToken), true);
+        p.salesManager.setPaymentTokenOracle(address(allowedToken), address(oracle));
+        vm.stopPrank();
+
+        // Send some tokens to SalesManager (simulating accidental transfer)
+        allowedToken.mint(address(p.salesManager), 100_000_000); // 100 USDC
+        address recipient = vm.addr(9999);
+
+        // Attempt to rescue allowed payment token - should fail
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Rescue_UseWithdrawFundsForPaymentTokens'));
+        p.salesManager.rescueTokens(address(allowedToken), recipient, 50_000_000);
+        vm.stopPrank();
+
+        // Verify tokens are still in SalesManager
+        assertEq(allowedToken.balanceOf(address(p.salesManager)), 100_000_000);
+        assertEq(allowedToken.balanceOf(recipient), 0);
+
+        // Use withdrawFunds instead - should succeed
+        vm.prank(salesManagerFundsAdmin);
+        p.salesManager.withdrawFunds(_single(address(allowedToken)), recipient, _singleUint(50_000_000));
+
+        // Verify tokens were withdrawn
+        assertEq(allowedToken.balanceOf(address(p.salesManager)), 50_000_000);
+        assertEq(allowedToken.balanceOf(recipient), 50_000_000);
+    }
+
+    function test_rescueTokens_succeeds_for_non_allowed_tokens() public {
+        // Create a non-allowed token (e.g., accidentally sent to contract)
+        MockToken randomToken = new MockToken('RANDOM', 'RND', 18);
+        randomToken.mint(address(p.salesManager), 1_000_000_000_000_000_000); // 1 token
+        address recipient = vm.addr(8888);
+
+        // Rescue should succeed for non-allowed tokens
+        vm.prank(salesManagerFundsAdmin);
+        p.salesManager.rescueTokens(address(randomToken), recipient, 500_000_000_000_000_000);
+
+        // Verify tokens were rescued
+        assertEq(randomToken.balanceOf(address(p.salesManager)), 500_000_000_000_000_000);
+        assertEq(randomToken.balanceOf(recipient), 500_000_000_000_000_000);
+    }
+
+    function test_rescueTokens_rejects_zero_address() public {
+        MockToken randomToken = new MockToken('RANDOM', 'RND', 18);
+        randomToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
+
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Rescue_InvalidRecipient'));
+        p.salesManager.rescueTokens(address(randomToken), ZERO, 100_000_000_000_000_000);
+        vm.stopPrank();
+    }
+
+    function test_withdrawFunds_succeeds_for_allowed_payment_tokens() public {
+        // Setup: Create and allowlist payment tokens
+        MockToken usdc = new MockToken('USDC', 'USDC', 6);
+        MockToken usdt = new MockToken('USDT', 'USDT', 6);
+        MockAggregatorV3 oracle1 = new MockAggregatorV3(8, 100_000_000);
+        MockAggregatorV3 oracle2 = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(usdc), true);
+        p.salesManager.setPaymentTokenOracle(address(usdc), address(oracle1));
+        p.salesManager.setAllowedPaymentToken(address(usdt), true);
+        p.salesManager.setPaymentTokenOracle(address(usdt), address(oracle2));
+        vm.stopPrank();
+
+        // Send tokens to SalesManager (simulating funds from sales)
+        usdc.mint(address(p.salesManager), 500_000_000); // 500 USDC
+        usdt.mint(address(p.salesManager), 300_000_000); // 300 USDT
+        address recipient = vm.addr(7777);
+
+        // Withdraw single token
+        vm.prank(salesManagerFundsAdmin);
+        p.salesManager.withdrawFunds(_single(address(usdc)), recipient, _singleUint(200_000_000));
+
+        assertEq(usdc.balanceOf(address(p.salesManager)), 300_000_000);
+        assertEq(usdc.balanceOf(recipient), 200_000_000);
+
+        // Withdraw multiple tokens in one call
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(usdc);
+        tokens[1] = address(usdt);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 100_000_000;
+        amounts[1] = 150_000_000;
+
+        vm.prank(salesManagerFundsAdmin);
+        p.salesManager.withdrawFunds(tokens, recipient, amounts);
+
+        assertEq(usdc.balanceOf(address(p.salesManager)), 200_000_000);
+        assertEq(usdt.balanceOf(address(p.salesManager)), 150_000_000);
+        assertEq(usdc.balanceOf(recipient), 300_000_000);
+        assertEq(usdt.balanceOf(recipient), 150_000_000);
+    }
+
+    function test_withdrawFunds_rejects_non_allowed_tokens() public {
+        MockToken unallowedToken = new MockToken('UNL', 'UNL', 18);
+        unallowedToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
+        address recipient = vm.addr(6666);
+
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Sale_PaymentTokenNotAllowed'));
+        p.salesManager.withdrawFunds(_single(address(unallowedToken)), recipient, _singleUint(500_000_000_000_000_000));
+        vm.stopPrank();
+
+        // Verify tokens are still in SalesManager
+        assertEq(unallowedToken.balanceOf(address(p.salesManager)), 1_000_000_000_000_000_000);
+        assertEq(unallowedToken.balanceOf(recipient), 0);
+    }
+
+    function test_withdrawFunds_rejects_zero_address() public {
+        MockToken usdc = new MockToken('USDC', 'USDC', 6);
+        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(usdc), true);
+        p.salesManager.setPaymentTokenOracle(address(usdc), address(oracle));
+        vm.stopPrank();
+
+        usdc.mint(address(p.salesManager), 100_000_000);
+
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Rescue_InvalidRecipient'));
+        p.salesManager.withdrawFunds(_single(address(usdc)), ZERO, _singleUint(50_000_000));
+        vm.stopPrank();
+    }
+
+    function test_withdrawFunds_rejects_length_mismatch() public {
+        MockToken usdc = new MockToken('USDC', 'USDC', 6);
+        MockToken usdt = new MockToken('USDT', 'USDT', 6);
+        MockAggregatorV3 oracle1 = new MockAggregatorV3(8, 100_000_000);
+        MockAggregatorV3 oracle2 = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(usdc), true);
+        p.salesManager.setPaymentTokenOracle(address(usdc), address(oracle1));
+        p.salesManager.setAllowedPaymentToken(address(usdt), true);
+        p.salesManager.setPaymentTokenOracle(address(usdt), address(oracle2));
+        vm.stopPrank();
+
+        usdc.mint(address(p.salesManager), 100_000_000);
+        usdt.mint(address(p.salesManager), 100_000_000);
+        address recipient = vm.addr(5555);
+
+        // Test: tokens.length != amounts.length
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(usdc);
+        tokens[1] = address(usdt);
+        uint256[] memory amounts = new uint256[](1); // Mismatch: only 1 amount for 2 tokens
+        amounts[0] = 50_000_000;
+
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Sale_LengthMismatch'));
+        p.salesManager.withdrawFunds(tokens, recipient, amounts);
+        vm.stopPrank();
+
+        // Test: empty arrays
+        address[] memory emptyTokens = new address[](0);
+        uint256[] memory emptyAmounts = new uint256[](0);
+
+        vm.prank(salesManagerFundsAdmin);
+        p.salesManager.withdrawFunds(emptyTokens, recipient, emptyAmounts); // Should succeed (no-op)
+    }
+
+    function test_withdrawFunds_partial_allowed_token_mix_reverts() public {
+        // Setup: One allowed, one not allowed
+        MockToken allowedToken = new MockToken('USDC', 'USDC', 6);
+        MockToken unallowedToken = new MockToken('UNL', 'UNL', 18);
+        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(allowedToken), true);
+        p.salesManager.setPaymentTokenOracle(address(allowedToken), address(oracle));
+        vm.stopPrank();
+
+        allowedToken.mint(address(p.salesManager), 100_000_000);
+        unallowedToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
+        address recipient = vm.addr(4444);
+
+        // Try to withdraw both - should fail on the unallowed token
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(allowedToken);
+        tokens[1] = address(unallowedToken);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 50_000_000;
+        amounts[1] = 500_000_000_000_000_000;
+
+        vm.startPrank(salesManagerFundsAdmin);
+        vm.expectRevert(bytes('Sale_PaymentTokenNotAllowed'));
+        p.salesManager.withdrawFunds(tokens, recipient, amounts);
+        vm.stopPrank();
+
+        // Verify no tokens were transferred
+        assertEq(allowedToken.balanceOf(address(p.salesManager)), 100_000_000);
+        assertEq(unallowedToken.balanceOf(address(p.salesManager)), 1_000_000_000_000_000_000);
+        assertEq(allowedToken.balanceOf(recipient), 0);
+        assertEq(unallowedToken.balanceOf(recipient), 0);
+    }
+
     function _singleUint(uint256 v) internal pure returns (uint256[] memory arr) {
         arr = new uint256[](1);
         arr[0] = v;
