@@ -19,6 +19,7 @@ import {SalesManager} from 'contracts/SalesManager.sol';
 import {TokenController} from 'contracts/TokenController.sol';
 import {Factory} from 'contracts/Factory.sol';
 import {MockToken} from 'contracts/mocks/MockToken.sol';
+import {MockFeeOnTransferToken} from 'contracts/mocks/MockFeeOnTransferToken.sol';
 import {MockAggregatorV3} from 'contracts/mocks/MockAggregatorV3.sol';
 
 contract SalesTest is Test, ProtocolFixture {
@@ -100,6 +101,57 @@ contract SalesTest is Test, ProtocolFixture {
         assertEq(token.balanceOf(buyer), 10);
         (, , , uint256 remaining, , , , , ) = p.salesManager.sales(saleId);
         assertEq(remaining, 90);
+    }
+
+    function test_buy_reverts_for_fee_on_transfer_payment_token() public {
+        vm.startPrank(factoryShareDeployer);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FOT', 'FOT', DEFAULT_MAX_SUPPLY);
+        // prepare controller: set caps, unpause
+        uint256 PAUSABLE_BIT = 1 << 1;
+        p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
+        vm.stopPrank();
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+
+        // register buyer identity (required even if no claim topics)
+        p.registerIdentity(vm, identityRegistryAgent, buyer);
+
+        // fee-on-transfer payment token + oracle
+        address feeCollector = vm.addr(4242);
+        MockFeeOnTransferToken fot = new MockFeeOnTransferToken('FOTUSD', 'FOTUSD', 6, 100, feeCollector); // 1% fee
+        fot.mint(buyer, 1_000_000_000); // 1000 tokens
+        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000); // 1 token = 1 USD
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(fot), true);
+        p.salesManager.setPaymentTokenOracle(address(fot), address(oracle));
+        vm.stopPrank();
+
+        // create sale
+        uint256 priceUsdPerShare = 1e8; // $1
+        uint64 deadline = uint64(block.timestamp + 3600);
+
+        vm.prank(salesManagerSalesOperator);
+        p.salesManager.createSale(address(token), _single(address(fot)), multisig, 100, priceUsdPerShare, deadline);
+
+        uint256 saleId = p.salesManager.saleCount() - 1;
+
+        uint256 buyerBefore = fot.balanceOf(buyer);
+        uint256 feeCollectorBefore = fot.balanceOf(feeCollector);
+        uint256 treasuryBefore = fot.balanceOf(multisig);
+
+        vm.startPrank(buyer);
+        fot.approve(address(p.salesManager), 10_000_000); // 10 tokens max
+        vm.expectRevert(bytes('Sale_TransferAmountMismatch'));
+        p.salesManager.buy(saleId, 10, buyer, address(fot), 10_000_000);
+        vm.stopPrank();
+
+        // Whole tx reverted: balances unchanged, no fee collected
+        assertEq(fot.balanceOf(buyer), buyerBefore);
+        assertEq(fot.balanceOf(feeCollector), feeCollectorBefore);
+        assertEq(fot.balanceOf(multisig), treasuryBefore);
+        assertEq(token.balanceOf(buyer), 0);
     }
 
     function test_createSale_rejects_bad_inputs_and_cap() public {

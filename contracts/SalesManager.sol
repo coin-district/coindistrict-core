@@ -203,7 +203,13 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(tokenAmount <= _maxPayment, 'Sale_MaxPaymentExceeded');
 
         // Pull payment token from buyer to this contract first. If anything reverts later, the whole tx reverts.
+        // Check balance before transfer to detect fee-on-transfer tokens
+        uint256 balanceBefore = IERC20(_paymentToken).balanceOf(address(this));
         IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
+
+        // Verify received amount matches expected (protects against fee-on-transfer tokens)
+        require(balanceAfter - balanceBefore == tokenAmount, 'Sale_TransferAmountMismatch');
 
         // Mint shares to recipient. Requires this contract to be an Agent on the share.
         IToken(s.share).mint(_to, _amount);
