@@ -435,8 +435,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function _getTokenUsdPrice1e8(address aggregator) internal view returns (uint256 price) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
-        (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) = priceFeed
-            .latestRoundData();
+        (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
 
         // Validate price data
         require(answer > 0, 'Sale_InvalidPrice');
