@@ -72,7 +72,6 @@ interface IFactory {
 
     /**
      * @notice Deploy a new token suite (share) with minimal required parameters
-     * @dev Requires SHARE_DEPLOYER_ROLE
      * @dev For role values, see Governance.sol constants
      * @dev If _irs is zero, TREXFactory will deploy a fresh IRS; otherwise IRS must be owned by TREXFactory
      * @dev function automatically adds salesManager as a token agent
@@ -106,7 +105,6 @@ interface IFactory {
 
     /**
      * @notice Forward deployment to TREXFactory with a custom salt
-     * @dev Requires ADMIN_ROLE
      * @dev Caller must be owner and this contract must own TREXFactory
      * @dev function automatically adds salesManager as a token agent
      * @param _salt Plain salt string; owner() will be appended internally for uniqueness
@@ -125,7 +123,6 @@ interface IFactory {
 
     /**
      * @notice Set the MaxSupplyModule implementation used for new share deployments
-     * @dev Requires ADMIN_ROLE
      * @param _module The new MaxSupplyModule implementation address
      */
     function editMaxSupplyModule(address _module) external;

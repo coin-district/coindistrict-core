@@ -197,7 +197,6 @@ interface ISalesManager {
     function isPaymentTokenAllowed(address token) external view returns (bool);
 
     /// @notice Create a new sale for a given ERC-3643 token
-    /// @dev Requires SALES_OPERATOR_ROLE
     /// @dev Reverts if `_deadline <= block.timestamp`, `_saleSupply == 0`, `_priceUsdPerShare == 0`, or `_paymentTokensAllowed` is empty
     /// @dev All payment tokens in `_paymentTokensAllowed` must be globally allowlisted and have oracles configured
     /// @param _share ERC-3643 share address (manager must be agent on this token)
@@ -228,28 +227,24 @@ interface ISalesManager {
 
     /**
      * @notice Cancel a sale permanently
-     * @dev Requires SALES_OPERATOR_ROLE
      * @param _saleId The sale identifier
      */
     function cancelSale(uint256 _saleId) external;
 
     /**
      * @notice Pause a sale (can be resumed with `unpauseSale`)
-     * @dev Requires SALES_OPERATOR_ROLE
      * @param _saleId The sale identifier
      */
     function pauseSale(uint256 _saleId) external;
 
     /**
      * @notice Unpause a previously paused sale
-     * @dev Requires SALES_OPERATOR_ROLE
      * @param _saleId The sale identifier
      */
     function unpauseSale(uint256 _saleId) external;
 
     /**
      * @notice Update the funds recipient for a sale
-     * @dev Requires FUNDS_ADMIN_ROLE
      * @param _saleId The sale identifier
      * @param _newRecipient The new recipient address
      */
@@ -257,7 +252,6 @@ interface ISalesManager {
 
     /**
      * @notice Replace the payment tokens allowed for a sale
-     * @dev Requires SALES_OPERATOR_ROLE
      * @dev All tokens in `_newPaymentTokensAllowed` must be globally allowlisted and have oracles configured
      * @param _saleId The sale identifier
      * @param _newPaymentTokensAllowed The new list of payment tokens allowed for this sale
@@ -266,7 +260,6 @@ interface ISalesManager {
 
     /**
      * @notice Update the USD price per share for a sale
-     * @dev Requires SALES_OPERATOR_ROLE
      * @param _saleId The sale identifier
      * @param _newPriceUsdPerShare The new USD price per share (1e8) for a full share (10^shareDecimals)
      */
@@ -274,7 +267,6 @@ interface ISalesManager {
 
     /**
      * @notice Update the deadline for a sale
-     * @dev Requires SALES_OPERATOR_ROLE
      * @param _saleId The sale identifier
      * @param _newDeadline The new deadline timestamp (must be in the future)
      */
@@ -282,7 +274,6 @@ interface ISalesManager {
 
     /**
      * @notice Fulfill an off-chain (fiat/OTC) order without ERC20 transfer
-     * @dev Requires FIAT_ORDER_ROLE
      * @dev Mints and updates accounting; applicable compliance checks still apply via token
      * @param _saleId The sale identifier
      * @param _amount Amount to mint (smallest units)
@@ -293,7 +284,6 @@ interface ISalesManager {
 
     /**
      * @notice Recover any ERC20 mistakenly sent to this contract
-     * @dev Requires FUNDS_ADMIN_ROLE
      * @param _erc20 The ERC20 token address
      * @param _to Recipient of recovered tokens
      * @param _amount Amount to transfer
@@ -302,7 +292,6 @@ interface ISalesManager {
 
     /**
      * @notice Allow or disallow a payment token for use in new sales (allowlist is always enforced)
-     * @dev Requires SALES_CONFIG_ROLE
      * @param paymentToken The ERC20 token address
      * @param allowed True to allow, false to disallow
      */
@@ -310,7 +299,6 @@ interface ISalesManager {
 
     /**
      * @notice Withdraw funds for allowlisted tokens
-     * @dev Requires FUNDS_ADMIN_ROLE
      * @dev Only allowlisted tokens can be withdrawn
      * @param tokens The ERC20 token addresses (must be allowlisted)
      * @param to Recipient of withdrawn funds
@@ -320,7 +308,6 @@ interface ISalesManager {
 
     /**
      * @notice Set or update the Chainlink oracle aggregator for a payment token
-     * @dev Requires SALES_CONFIG_ROLE
      * @dev Set aggregator to address(0) to remove
      * @param paymentToken The ERC20 payment token address
      * @param aggregator The Chainlink AggregatorV3Interface address (address(0) to remove)
@@ -329,7 +316,6 @@ interface ISalesManager {
 
     /**
      * @notice Set the maximum allowed delay for oracle price updates
-     * @dev Requires SALES_CONFIG_ROLE
      * @dev Stale prices beyond this delay will revert purchases
      * @param seconds_ Maximum delay in seconds
      */
@@ -337,7 +323,6 @@ interface ISalesManager {
 
     /**
      * @notice Pause all sales immediately
-     * @dev Requires SALES_OPERATOR_ROLE
      * @dev When paused, all buy() and fulfillFiatOrder() operations are blocked
      * @dev Functions are split to enable different delays for each function
      * /
@@ -345,7 +330,6 @@ interface ISalesManager {
 
     /**
      * @notice Unpause all sales
-     * @dev Requires SALES_OPERATOR_ROLE
      */
     function unsetEmergencyPause() external;
 

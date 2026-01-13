@@ -56,7 +56,6 @@ interface ITokenController {
 
     /**
      * @notice Set initial capability bitmask for a token
-     * @dev Requires SHARE_DEPLOYER_ROLE
      * @dev Can only be called when capabilities are not yet initialized. INITIALIZED_BIT is automatically set.
      * @dev Caps can be 0 (no capabilities enabled), but INITIALIZED_BIT will still be set.
      * @param token The ERC-3643 token address
@@ -66,7 +65,6 @@ interface ITokenController {
 
     /**
      * @notice Update capability bitmask for a token
-     * @dev Requires ADMIN_ROLE
      * @dev Can only be called when capabilities are already initialized (INITIALIZED_BIT is set).
      * @dev INITIALIZED_BIT is automatically preserved during updates.
      * @param token The ERC-3643 token address
@@ -76,14 +74,14 @@ interface ITokenController {
 
     /**
      * @notice Pause the token
-     * @dev Requires PAUSER_ROLE and pause capability must be enabled for the token
+     * @dev Pause capability must be enabled for the token
      * @param token The ERC-3643 token address
      */
     function pause(address token) external;
 
     /**
      * @notice Unpause the token
-     * @dev Requires PAUSER_ROLE and pause capability must be enabled for the token
+     * @dev Pause capability must be enabled for the token
      * @param token The ERC-3643 token address
      */
     function unpause(address token) external;
@@ -98,7 +96,7 @@ interface ITokenController {
 
     /**
      * @notice Burn tokens from a user
-     * @dev Requires BURNER_ROLE and burn capability must be enabled for the token
+     * @dev Burn capability must be enabled for the token
      * @param token The ERC-3643 token address
      * @param user Address to burn from
      * @param amount Amount to burn (token smallest units)
@@ -107,7 +105,7 @@ interface ITokenController {
 
     /**
      * @notice Force transfer tokens between addresses
-     * @dev Requires FORCE_ROLE and force capability must be enabled for the token
+     * @dev Force capability must be enabled for the token
      * @param token The ERC-3643 token address
      * @param from Sender address
      * @param to Recipient address
@@ -117,7 +115,7 @@ interface ITokenController {
 
     /**
      * @notice Freeze or unfreeze a user's wallet
-     * @dev Requires FREEZER_ROLE and freeze capability must be enabled for the token
+     * @dev Freeze capability must be enabled for the token
      * @param token The ERC-3643 token address
      * @param user The wallet to update
      * @param freeze True to freeze, false to unfreeze
@@ -126,7 +124,7 @@ interface ITokenController {
 
     /**
      * @notice Recover tokens from a lost wallet to a new wallet
-     * @dev Requires RECOVERY_ROLE and recovery capability must be enabled for the token
+     * @dev Recovery capability must be enabled for the token
      * @param token The ERC-3643 token address
      * @param lostWallet The wallet considered lost
      * @param newWallet The replacement wallet
