@@ -1,8 +1,11 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "0.19.0",
+  "version": "0.21.0",
   "private": false,
-  "description": "Foundry-based ERC-3643 smart contracts for CoinDistrict",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "description": "Foundry-based ERC-3643 smart contracts for Coin District",
   "license": "GPL-3.0",
   "scripts": {
     "install": "forge install",

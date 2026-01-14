@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.16.0
+ * @dev Version: 0.21.0
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
@@ -28,6 +28,7 @@ interface IOwnableMinimal {
 contract Factory is IFactory, UUPSUpgradeable {
     TREXFactory private _trexFactory;
     address public salesManagerAddress;
+    address public tokenControllerAddress; // always added as token agent
     address public maxSupplyModule; // optional module to enforce max supply
     uint256 public shareIdIndex;
     mapping(uint256 => address) public idToShare;
@@ -40,12 +41,14 @@ contract Factory is IFactory, UUPSUpgradeable {
     /**
      * @param _trexFactoryAddr Address of the TREXFactory this contract must own
      * @param _salesManagerAddr Address of the SalesManager contract
+     * @param _tokenControllerAddr Address of the TokenController contract (always added as token agent)
      * @param _maxSupplyModuleAddr Address of the MaxSupplyModule
      * @param _governance Address of the Governance contract
      */
     function initialize(
         address _trexFactoryAddr,
         address _salesManagerAddr,
+        address _tokenControllerAddr,
         address _maxSupplyModuleAddr,
         address _governance
     ) external initializer {
@@ -53,10 +56,12 @@ contract Factory is IFactory, UUPSUpgradeable {
         require(_governance != address(0), 'Factory_InvalidGovernanceAddress');
         require(_trexFactoryAddr != address(0), 'Factory_InvalidTREXFactoryAddress');
         require(_salesManagerAddr != address(0), 'Factory_InvalidSalesManagerAddress');
+        require(_tokenControllerAddr != address(0), 'Factory_InvalidTokenControllerAddress');
         require(_maxSupplyModuleAddr != address(0), 'Factory_InvalidMaxSupplyModuleAddress');
         governance = IGovernance(_governance);
         _trexFactory = TREXFactory(_trexFactoryAddr);
         salesManagerAddress = _salesManagerAddr;
+        tokenControllerAddress = _tokenControllerAddr;
         maxSupplyModule = _maxSupplyModuleAddr;
     }
 
@@ -89,7 +94,10 @@ contract Factory is IFactory, UUPSUpgradeable {
         require(isContractTrexFactoryOwner(), 'Factory_NotOwnerOfTREXFactory');
         require(_maxSupply > 0, 'Factory_MaxSupplyRequired');
         require(maxSupplyModule != address(0), 'Factory_MaxSupplyModuleNotSet');
-        require(_tokenAgents.length <= 4, 'Factory_Max4TokenAgents');
+
+        // Standard deployments cannot include any extra token agents
+        require(_tokenAgents.length == 0, 'Factory_CustomTokenAgentsNotAllowed');
+
         require(_irAgents.length <= 5, 'Factory_Max5IRAgents');
         require(
             _irs == address(0) || IOwnableMinimal(_irs).owner() == address(_trexFactory),
@@ -100,12 +108,10 @@ contract Factory is IFactory, UUPSUpgradeable {
         require(_issuers.length <= 5, 'Factory_Max5Issuers');
         require(_issuerClaims.length == _issuers.length, 'Factory_ClaimIssuerLengthMismatch');
 
-        address[] memory tokenAgents = new address[](_tokenAgents.length + 1);
-        for (uint8 i = 0; i < _tokenAgents.length; i++) {
-            require(_tokenAgents[i] != salesManagerAddress, 'Factory_SalesManagerAlreadyInTokenAgents');
-            tokenAgents[i] = _tokenAgents[i];
-        }
-        tokenAgents[tokenAgents.length - 1] = salesManagerAddress;
+        // Always exactly these 2 agents: TokenController (capability hub) and SalesManager (minting)
+        address[] memory tokenAgents = new address[](2);
+        tokenAgents[0] = tokenControllerAddress;
+        tokenAgents[1] = salesManagerAddress;
 
         ITREXFactory.TokenDetails memory tokenDetails = ITREXFactory.TokenDetails({
             owner: _owner,

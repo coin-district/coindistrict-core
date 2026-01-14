@@ -159,7 +159,13 @@ abstract contract ProtocolFixture is Test {
         // Factory proxy
         Factory factoryImpl = new Factory();
         Factory factory = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ''))));
-        factory.initialize(address(trexFactory), address(salesManager), address(maxSupplyModule), address(governance));
+        factory.initialize(
+            address(trexFactory),
+            address(salesManager),
+            address(tokenController),
+            address(maxSupplyModule),
+            address(governance)
+        );
         trexFactory.transferOwnership(address(factory));
 
         // Common registries proxies bound to TREX IA

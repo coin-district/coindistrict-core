@@ -337,13 +337,11 @@ contract FactoryTest is Test, ProtocolFixture {
     }
 
     function test_Max4TokenAgents() public {
-        address[] memory tokenAgents = new address[](5);
-        for (uint256 i = 0; i < 5; i++) {
-            tokenAgents[i] = user1;
-        }
+        address[] memory tokenAgents = new address[](1);
+        tokenAgents[0] = user1;
         address[] memory irAgents = new address[](0);
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes('Factory_Max4TokenAgents'));
+        vm.expectRevert(bytes('Factory_CustomTokenAgentsNotAllowed'));
         p.factory.createShare(
             'N',
             'S',
@@ -366,7 +364,7 @@ contract FactoryTest is Test, ProtocolFixture {
         irAgents[0] = identityRegistryAgent;
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes('Factory_SalesManagerAlreadyInTokenAgents'));
+        vm.expectRevert(bytes('Factory_CustomTokenAgentsNotAllowed'));
         p.factory.createShare(
             'SM',
             'SM',
@@ -496,7 +494,7 @@ contract FactoryTest is Test, ProtocolFixture {
         );
 
         address[] memory oneIssuer = new address[](1);
-        oneIssuer[0] = tokenAgents[0];
+        oneIssuer[0] = claimIssuer;
         vm.prank(factoryShareDeployer);
         vm.expectRevert(bytes('Factory_ClaimIssuerLengthMismatch'));
         p.factory.createShare(
@@ -521,6 +519,7 @@ contract FactoryTest is Test, ProtocolFixture {
         rogue.initialize(
             address(p.trexFactory),
             address(p.salesManager),
+            address(p.tokenController),
             address(p.maxSupplyModule),
             address(p.governance)
         );
@@ -869,7 +868,7 @@ contract FactoryTest is Test, ProtocolFixture {
             irs: address(p.identityRegistryStorage),
             ONCHAINID: ZERO,
             irAgents: _single(identityRegistryAgent),
-            tokenAgents: _single(address(p.tokenController)),
+            tokenAgents: _single(tokenAgent),
             complianceModules: _single(address(p.maxSupplyModule)),
             complianceSettings: _singleBytes(abi.encodeWithSignature('setMaxSupply(uint256)', DEFAULT_MAX_SUPPLY))
         });
@@ -901,9 +900,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
     // helpers
     function _defaultAgents() internal view returns (address[] memory tokenAgents, address[] memory irAgents) {
-        tokenAgents = new address[](2);
-        tokenAgents[0] = address(p.tokenController);
-        tokenAgents[1] = tokenAgent;
+        tokenAgents = new address[](0);
         irAgents = new address[](1);
         irAgents[0] = identityRegistryAgent;
     }

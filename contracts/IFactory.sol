@@ -6,7 +6,7 @@ import '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
 /**
  * @title IFactory
  * @author CoinDistrict
- * @dev Version: 0.16.0
+ * @dev Version: 0.21.0
  * @notice Interface for the Factory contract
  * @dev For role values, see Governance.sol constants
  * See {Factory} for usage and more details.
@@ -46,6 +46,11 @@ interface IFactory {
     function salesManagerAddress() external view returns (address);
 
     /**
+     * @notice Returns the TokenController address automatically added as token agent
+     */
+    function tokenControllerAddress() external view returns (address);
+
+    /**
      * @notice Returns the index of the share
      * @return The index of the share
      */
@@ -74,12 +79,12 @@ interface IFactory {
      * @notice Deploy a new token suite (share) with minimal required parameters
      * @dev For role values, see Governance.sol constants
      * @dev If _irs is zero, TREXFactory will deploy a fresh IRS; otherwise IRS must be owned by TREXFactory
-     * @dev function automatically adds salesManager as a token agent
+     * @dev function automatically sets token agents to {tokenController, salesManager}
      * @param _name Token name
      * @param _symbol Token symbol
      * @param _decimals Token decimals
      * @param _owner Owner of all deployed share contracts
-     * @param _tokenAgents Token agent addresses (max 4)
+     * @param _tokenAgents Must be empty (custom token agents require deployShareSuite)
      * @param _irAgents Identity registry agent addresses (max 5)
      * @param _irs Optional shared IdentityRegistryStorage address (0 to deploy new)
      * @param _claimTopics Required claim topics for verification (max 5)

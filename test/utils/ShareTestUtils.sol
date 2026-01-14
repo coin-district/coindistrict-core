@@ -18,9 +18,7 @@ library ShareTestUtils {
         string memory symbol,
         uint256 maxSupply
     ) internal returns (Token token) {
-        address[] memory tokenAgents = new address[](2);
-        tokenAgents[0] = address(p.tokenController);
-        tokenAgents[1] = tokenAgent;
+        address[] memory tokenAgents = new address[](0);
 
         address[] memory irAgents = new address[](1);
         irAgents[0] = identityRegistryAgent;
