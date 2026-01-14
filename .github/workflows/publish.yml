@@ -1,0 +1,46 @@
+name: Publish package
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@coin-district"
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: forge test
+
+      - name: Build + generate ABIs
+        run: pnpm prepublishOnly
+
+      - name: Publish to GitHub Packages
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
