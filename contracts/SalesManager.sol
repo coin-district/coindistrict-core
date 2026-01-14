@@ -17,7 +17,7 @@ import './ISalesManager.sol';
 /**
  * @title SalesManager
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.21.2
  * @notice Manages primary sales of ERC-3643 shares against ERC20 payment tokens
  * See {ISalesManager} for usage and more details.
  */
