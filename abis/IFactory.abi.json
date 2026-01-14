@@ -271,6 +271,19 @@
   },
   {
     "type": "function",
+    "name": "tokenControllerAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "trexFactory",
     "inputs": [],
     "outputs": [

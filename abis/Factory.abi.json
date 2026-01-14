@@ -226,6 +226,11 @@
         "internalType": "address"
       },
       {
+        "name": "_tokenControllerAddr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_maxSupplyModuleAddr",
         "type": "address",
         "internalType": "address"
@@ -319,6 +324,19 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokenControllerAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
