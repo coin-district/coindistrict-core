@@ -1,23 +1,23 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
-import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/Math.sol';
-import '@erc3643org/erc-3643/contracts/token/IToken.sol';
-import '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
-import './compliance/modules/IMaxSupplyModule.sol';
-import './interfaces/IAggregatorV3Interface.sol';
-import './governance/IGovernance.sol';
-import './ISalesManager.sol';
+import {ReentrancyGuardUpgradeable} from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
+import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import {IERC20Metadata} from '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {Math} from '@openzeppelin/contracts/utils/math/Math.sol';
+import {IToken} from '@erc3643org/erc-3643/contracts/token/IToken.sol';
+import {IModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
+import {IMaxSupplyModule} from './compliance/modules/IMaxSupplyModule.sol';
+import {AggregatorV3Interface} from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
+import {IGovernance} from './governance/IGovernance.sol';
+import {ISalesManager} from './ISalesManager.sol';
 
 /**
  * @title SalesManager
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.22.0
  * @notice Manages primary sales of ERC-3643 shares against ERC20 payment tokens
  * See {ISalesManager} for usage and more details.
  */
@@ -30,6 +30,8 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     // Governance interface
     IGovernance public governance;
 
+    uint256[50] private _gap;
+
     function initialize(address governance_) external initializer {
         __ReentrancyGuard_init();
         require(governance_ != address(0), 'SalesManager_InvalidGovernance');
@@ -37,8 +39,12 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     modifier onlyGov() {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'SalesManager_NotAuthorized');
+        _onlyGov();
         _;
+    }
+
+    function _onlyGov() internal view {
+        require(governance.hasRole(msg.sender, address(this), msg.sig), 'SalesManager_NotAuthorized');
     }
 
     function _authorizeUpgrade(address /*newImplementation*/) internal view override {
@@ -47,8 +53,12 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     modifier whenNotPaused() {
-        require(!emergencyPaused, 'SalesManager_EmergencyPaused');
+        _whenNotPaused();
         _;
+    }
+
+    function _whenNotPaused() internal view {
+        require(!emergencyPaused, 'SalesManager_EmergencyPaused');
     }
 
     // payment token allowlist (always enforced)
@@ -315,9 +325,13 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function updateSaleDeadline(uint256 _saleId, uint256 _newDeadline) external onlyGov {
         require(_newDeadline > block.timestamp, 'Sale_InvalidDeadline');
+        require(_newDeadline <= type(uint64).max, 'Sale_InvalidDeadline');
         Sale storage s = _sales[_saleId];
         require(s.share != address(0), 'Sale_DoesNotExist');
         uint64 oldDeadline = s.deadline;
+
+        // Safe: _newDeadline is checked > block.timestamp and <= type(uint64).max.
+        // forge-lint: disable-next-line(unsafe-typecast)
         s.deadline = uint64(_newDeadline);
         emit SaleDeadlineUpdated(_saleId, oldDeadline, s.deadline);
     }
@@ -452,6 +466,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(block.timestamp - updatedAt <= maxOracleDelaySeconds, 'Sale_StalePrice');
 
         uint8 aggregatorDecimals = priceFeed.decimals();
+
+        // Safe: answer is checked > 0 and int256 max fits into uint256.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 priceRaw = uint256(answer);
 
         // Scale to 1e8 if needed
@@ -524,6 +541,4 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             s.paused
         );
     }
-
-    uint256[50] private __gap;
 }

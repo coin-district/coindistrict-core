@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import 'forge-std/Test.sol';
+import {Test} from 'forge-std/Test.sol';
 import {ERC1967Proxy} from '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol';
 
 import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
@@ -9,26 +9,21 @@ import {ImplementationAuthority as OnchainImplementationAuthority} from '@onchai
 import {IdFactory} from '@onchain-id/solidity/contracts/factory/IdFactory.sol';
 import {Gateway} from '@onchain-id/solidity/contracts/gateway/Gateway.sol';
 import {ClaimIssuer} from '@onchain-id/solidity/contracts/ClaimIssuer.sol';
-import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
-import {IClaimIssuer} from '@onchain-id/solidity/contracts/interface/IClaimIssuer.sol';
 
 import {ClaimTopicsRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol';
 import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol';
 import {IdentityRegistryStorage} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol';
 import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
-import {IIdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/interface/IIdentityRegistry.sol';
 import {IdentityRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/IdentityRegistryProxy.sol';
 import {IdentityRegistryStorageProxy} from '@erc3643org/erc-3643/contracts/proxy/IdentityRegistryStorageProxy.sol';
 import {TrustedIssuersRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/TrustedIssuersRegistryProxy.sol';
 import {ClaimTopicsRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/ClaimTopicsRegistryProxy.sol';
 import {ModularComplianceProxy} from '@erc3643org/erc-3643/contracts/proxy/ModularComplianceProxy.sol';
 import {ModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/ModularCompliance.sol';
-import {IModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
 import {TREXImplementationAuthority} from '@erc3643org/erc-3643/contracts/proxy/authority/TREXImplementationAuthority.sol';
 import {ITREXImplementationAuthority} from '@erc3643org/erc-3643/contracts/proxy/authority/ITREXImplementationAuthority.sol';
 import {TREXFactory} from '@erc3643org/erc-3643/contracts/factory/TREXFactory.sol';
-import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
 
 import {MaxSupplyModule} from 'contracts/compliance/modules/MaxSupplyModule.sol';
 import {SalesManager} from 'contracts/SalesManager.sol';
@@ -108,8 +103,8 @@ abstract contract ProtocolFixture is Test {
     function deployProtocol(Accounts memory a) internal returns (Protocol memory) {
         // OnchainID stack
         Identity idImplementation = new Identity(address(this), true);
-        OnchainImplementationAuthority identityIA = new OnchainImplementationAuthority(address(idImplementation));
-        IdFactory idFactory = new IdFactory(address(identityIA));
+        OnchainImplementationAuthority identityIa = new OnchainImplementationAuthority(address(idImplementation));
+        IdFactory idFactory = new IdFactory(address(identityIa));
         Gateway gateway = new Gateway(address(idFactory), new address[](0));
 
         // TREX implementations and authority
@@ -119,7 +114,7 @@ abstract contract ProtocolFixture is Test {
         IdentityRegistry irImpl = new IdentityRegistry();
         ModularCompliance mcImpl = new ModularCompliance();
         Token tokenImpl = new Token();
-        TREXImplementationAuthority trexIA = new TREXImplementationAuthority(true, address(0), address(0));
+        TREXImplementationAuthority trexIa = new TREXImplementationAuthority(true, address(0), address(0));
 
         ITREXImplementationAuthority.Version memory version = ITREXImplementationAuthority.Version({
             major: 4,
@@ -134,9 +129,9 @@ abstract contract ProtocolFixture is Test {
             tirImplementation: address(tirImpl),
             mcImplementation: address(mcImpl)
         });
-        trexIA.addAndUseTREXVersion(version, trexContracts);
+        trexIa.addAndUseTREXVersion(version, trexContracts);
 
-        TREXFactory trexFactory = new TREXFactory(address(trexIA), address(idFactory));
+        TREXFactory trexFactory = new TREXFactory(address(trexIa), address(idFactory));
         idFactory.addTokenFactory(address(trexFactory));
 
         // Governance stack (real OZ AccessManager + Governance)
@@ -169,12 +164,12 @@ abstract contract ProtocolFixture is Test {
         trexFactory.transferOwnership(address(factory));
 
         // Common registries proxies bound to TREX IA
-        ClaimTopicsRegistryProxy claimTopicsRegistry = new ClaimTopicsRegistryProxy(address(trexIA));
-        TrustedIssuersRegistryProxy trustedIssuersRegistry = new TrustedIssuersRegistryProxy(address(trexIA));
-        IdentityRegistryStorageProxy irsProxy = new IdentityRegistryStorageProxy(address(trexIA));
-        ModularComplianceProxy modularCompliance = new ModularComplianceProxy(address(trexIA));
+        ClaimTopicsRegistryProxy claimTopicsRegistry = new ClaimTopicsRegistryProxy(address(trexIa));
+        TrustedIssuersRegistryProxy trustedIssuersRegistry = new TrustedIssuersRegistryProxy(address(trexIa));
+        IdentityRegistryStorageProxy irsProxy = new IdentityRegistryStorageProxy(address(trexIa));
+        ModularComplianceProxy modularCompliance = new ModularComplianceProxy(address(trexIa));
         IdentityRegistryProxy irProxy = new IdentityRegistryProxy(
-            address(trexIA),
+            address(trexIa),
             address(trustedIssuersRegistry),
             address(claimTopicsRegistry),
             address(irsProxy)
@@ -294,68 +289,180 @@ abstract contract ProtocolFixture is Test {
         uint256 i;
 
         // Factory (upgrade selectors live on the UUPS proxy)
-        perms[i++] = Permission(address(p.factory), IUUPSUpgradeableLike.upgradeTo.selector, upgraderRole);
-        perms[i++] = Permission(address(p.factory), IUUPSUpgradeableLike.upgradeToAndCall.selector, upgraderRole);
-        perms[i++] = Permission(address(p.factory), Factory.editMaxSupplyModule.selector, adminRole);
-        perms[i++] = Permission(address(p.factory), Factory.deployShareSuite.selector, adminRole);
-        perms[i++] = Permission(address(p.factory), Factory.createShare.selector, shareDeployerRole);
+        perms[i++] = Permission({
+            target: address(p.factory),
+            selector: IUUPSUpgradeableLike.upgradeTo.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.factory),
+            selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.factory),
+            selector: Factory.editMaxSupplyModule.selector,
+            roleId: adminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.factory),
+            selector: Factory.deployShareSuite.selector,
+            roleId: adminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.factory),
+            selector: Factory.createShare.selector,
+            roleId: shareDeployerRole
+        });
 
         // SalesManager (upgrade selectors live on the UUPS proxy)
-        perms[i++] = Permission(address(p.salesManager), IUUPSUpgradeableLike.upgradeTo.selector, upgraderRole);
-        perms[i++] = Permission(address(p.salesManager), IUUPSUpgradeableLike.upgradeToAndCall.selector, upgraderRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.rescueTokens.selector, fundsAdminRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.withdrawFunds.selector, fundsAdminRole);
-        perms[i++] = Permission(
-            address(p.salesManager),
-            SalesManager.updateSaleFundsRecipient.selector,
-            fundsAdminRole
-        );
-        perms[i++] = Permission(address(p.salesManager), SalesManager.setAllowedPaymentToken.selector, salesConfigRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.setPaymentTokenOracle.selector, salesConfigRole);
-        perms[i++] = Permission(
-            address(p.salesManager),
-            SalesManager.setMaxOracleDelaySeconds.selector,
-            salesConfigRole
-        );
-        perms[i++] = Permission(address(p.salesManager), SalesManager.setEmergencyPause.selector, salesOperatorRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.unsetEmergencyPause.selector, salesOperatorRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.createSale.selector, salesOperatorRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.cancelSale.selector, salesOperatorRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.pauseSale.selector, salesOperatorRole);
-        perms[i++] = Permission(address(p.salesManager), SalesManager.unpauseSale.selector, salesOperatorRole);
-        perms[i++] = Permission(
-            address(p.salesManager),
-            SalesManager.updateSalePriceUsdPerShare.selector,
-            salesOperatorRole
-        );
-        perms[i++] = Permission(address(p.salesManager), SalesManager.updateSaleDeadline.selector, salesOperatorRole);
-        perms[i++] = Permission(
-            address(p.salesManager),
-            SalesManager.updateSalePaymentTokensAllowed.selector,
-            salesOperatorRole
-        );
-        perms[i++] = Permission(address(p.salesManager), SalesManager.fulfillFiatOrder.selector, fiatOrderRole);
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: IUUPSUpgradeableLike.upgradeTo.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.rescueTokens.selector,
+            roleId: fundsAdminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.withdrawFunds.selector,
+            roleId: fundsAdminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.updateSaleFundsRecipient.selector,
+            roleId: fundsAdminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.setAllowedPaymentToken.selector,
+            roleId: salesConfigRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.setPaymentTokenOracle.selector,
+            roleId: salesConfigRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.setMaxOracleDelaySeconds.selector,
+            roleId: salesConfigRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.setEmergencyPause.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.unsetEmergencyPause.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.createSale.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.cancelSale.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.pauseSale.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.unpauseSale.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.updateSalePriceUsdPerShare.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.updateSaleDeadline.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.updateSalePaymentTokensAllowed.selector,
+            roleId: salesOperatorRole
+        });
+        perms[i++] = Permission({
+            target: address(p.salesManager),
+            selector: SalesManager.fulfillFiatOrder.selector,
+            roleId: fiatOrderRole
+        });
 
         // TokenController (upgrade selectors live on the UUPS proxy)
-        perms[i++] = Permission(address(p.tokenController), IUUPSUpgradeableLike.upgradeTo.selector, upgraderRole);
-        perms[i++] = Permission(
-            address(p.tokenController),
-            IUUPSUpgradeableLike.upgradeToAndCall.selector,
-            upgraderRole
-        );
-        perms[i++] = Permission(address(p.tokenController), TokenController.setTokenCaps.selector, adminRole);
-        perms[i++] = Permission(
-            address(p.tokenController),
-            TokenController.setTokenCapsInitial.selector,
-            shareDeployerRole
-        );
-        perms[i++] = Permission(address(p.tokenController), TokenController.pause.selector, pauserRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.unpause.selector, pauserRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.recover.selector, recoveryRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.mint.selector, minterRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.burn.selector, burnerRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.forceTransfer.selector, forceRole);
-        perms[i++] = Permission(address(p.tokenController), TokenController.setFrozen.selector, freezerRole);
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: IUUPSUpgradeableLike.upgradeTo.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
+            roleId: upgraderRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.setTokenCaps.selector,
+            roleId: adminRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.setTokenCapsInitial.selector,
+            roleId: shareDeployerRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.pause.selector,
+            roleId: pauserRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.unpause.selector,
+            roleId: pauserRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.recover.selector,
+            roleId: recoveryRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.mint.selector,
+            roleId: minterRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.burn.selector,
+            roleId: burnerRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.forceTransfer.selector,
+            roleId: forceRole
+        });
+        perms[i++] = Permission({
+            target: address(p.tokenController),
+            selector: TokenController.setFrozen.selector,
+            roleId: freezerRole
+        });
     }
 
     function _applyPermissions(Protocol memory p, address admin, Permission[] memory perms) internal {

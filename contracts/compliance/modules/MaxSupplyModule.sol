@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import '@erc3643org/erc-3643/contracts/compliance/modular/modules/AbstractModule.sol';
+import {AbstractModule} from '@erc3643org/erc-3643/contracts/compliance/modular/modules/AbstractModule.sol';
 
 /**
  * @title MaxSupplyModule
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.22.0
  * @notice MaxSupplyModule for enforcing max supply on ERC-3643 shares
  * See {IMaxSupplyModule} for usage and more details.
  */
@@ -20,7 +20,7 @@ contract MaxSupplyModule is AbstractModule {
         uint256 currentSupply = _currentSupplyByCompliance[msg.sender];
         require(
             maxSupply == 0 || maxSupply >= currentSupply,
-            "MaxSupplyModule: new max supply cannot be below current supply"
+            'MaxSupplyModule: new max supply cannot be below current supply'
         );
         _maxSupplyByCompliance[msg.sender] = maxSupply;
     }

@@ -12,7 +12,7 @@ library ShareTestUtils {
     function createShare(
         Protocol storage p,
         address multisig,
-        address tokenAgent,
+        address /* tokenAgent */,
         address identityRegistryAgent,
         string memory name,
         string memory symbol,

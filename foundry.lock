@@ -1,4 +1,10 @@
 {
+  "lib/chainlink": {
+    "tag": {
+      "name": "v2.8.0",
+      "rev": "04fbe42af1f8389ba215826a4c07f2acc86d9844"
+    }
+  },
   "lib/erc-3643": {
     "tag": {
       "name": "4.1.3",

@@ -1,35 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import 'forge-std/Test.sol';
+import {Test} from 'forge-std/Test.sol';
 import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
 import {ShareTestUtils} from './utils/ShareTestUtils.sol';
-
 import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
-import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
-
-import {ClaimTopicsRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol';
-import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol';
-import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
-import {MaxSupplyModule} from 'contracts/compliance/modules/MaxSupplyModule.sol';
-import {SalesManager} from 'contracts/SalesManager.sol';
 import {TokenController} from 'contracts/TokenController.sol';
-import {Factory} from 'contracts/Factory.sol';
 
 contract TokenControllerTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
     TokenController private tc = TokenController(address(0));
 
-    uint64 private ADMIN_ROLE;
-    uint64 private UPGRADER_ROLE;
-    uint64 private SHARE_DEPLOYER_ROLE;
-    uint64 private PAUSER_ROLE;
-    uint64 private MINTER_ROLE;
-    uint64 private BURNER_ROLE;
-    uint64 private FREEZER_ROLE;
-    uint64 private FORCE_ROLE;
-    uint64 private RECOVERY_ROLE;
+    uint64 private adminRole;
+    uint64 private upgraderRole;
+    uint64 private shareDeployerRole;
+    uint64 private pauserRole;
+    uint64 private minterRole;
+    uint64 private burnerRole;
+    uint64 private freezerRole;
+    uint64 private forceRole;
+    uint64 private recoveryRole;
 
     address internal multisig = vm.addr(2);
     address internal identityRegistryAgent = vm.addr(3);
@@ -47,15 +38,15 @@ contract TokenControllerTest is Test, ProtocolFixture {
         addGlobalIrAgents(p, acc);
 
         tc = TokenController(address(p.tokenController));
-        ADMIN_ROLE = p.governance.ADMIN_ROLE();
-        UPGRADER_ROLE = p.governance.UPGRADER_ROLE();
-        SHARE_DEPLOYER_ROLE = p.governance.SHARE_DEPLOYER_ROLE();
-        PAUSER_ROLE = p.governance.PAUSER_ROLE();
-        MINTER_ROLE = p.governance.MINTER_ROLE();
-        BURNER_ROLE = p.governance.BURNER_ROLE();
-        FREEZER_ROLE = p.governance.FREEZER_ROLE();
-        FORCE_ROLE = p.governance.FORCE_ROLE();
-        RECOVERY_ROLE = p.governance.RECOVERY_ROLE();
+        adminRole = p.governance.ADMIN_ROLE();
+        upgraderRole = p.governance.UPGRADER_ROLE();
+        shareDeployerRole = p.governance.SHARE_DEPLOYER_ROLE();
+        pauserRole = p.governance.PAUSER_ROLE();
+        minterRole = p.governance.MINTER_ROLE();
+        burnerRole = p.governance.BURNER_ROLE();
+        freezerRole = p.governance.FREEZER_ROLE();
+        forceRole = p.governance.FORCE_ROLE();
+        recoveryRole = p.governance.RECOVERY_ROLE();
 
         multisig = acc.multisig;
         identityRegistryAgent = acc.identityRegistryAgent;
@@ -91,7 +82,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         // grant MINTER_ROLE to userA
 
         vm.prank(multisig);
-        p.accessManager.grantRole(MINTER_ROLE, userA, 0);
+        p.accessManager.grantRole(minterRole, userA, 0);
 
         // missing identity -> register
         p.registerIdentity(vm, identityRegistryAgent, userA);
@@ -105,7 +96,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         // remove role -> revert
 
         vm.prank(multisig);
-        p.accessManager.revokeRole(MINTER_ROLE, userA);
+        p.accessManager.revokeRole(minterRole, userA);
 
         vm.prank(userA);
         vm.expectRevert(bytes('TokenController_NotAuthorized'));
@@ -119,7 +110,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(multisig);
-        p.accessManager.grantRole(PAUSER_ROLE, tokenAgent, 0);
+        p.accessManager.grantRole(pauserRole, tokenAgent, 0);
 
         vm.startPrank(tokenAgent);
         p.tokenController.unpause(address(token));
@@ -136,8 +127,8 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.startPrank(multisig);
-        p.accessManager.grantRole(MINTER_ROLE, tokenAgent, 0);
-        p.accessManager.grantRole(BURNER_ROLE, tokenAgent, 0);
+        p.accessManager.grantRole(minterRole, tokenAgent, 0);
+        p.accessManager.grantRole(burnerRole, tokenAgent, 0);
         vm.stopPrank();
 
         p.registerIdentity(vm, identityRegistryAgent, userA);
@@ -161,9 +152,9 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.startPrank(multisig);
-        p.accessManager.grantRole(PAUSER_ROLE, tokenAgent, 0);
-        p.accessManager.grantRole(FREEZER_ROLE, tokenAgent, 0);
-        p.accessManager.grantRole(MINTER_ROLE, tokenAgent, 0);
+        p.accessManager.grantRole(pauserRole, tokenAgent, 0);
+        p.accessManager.grantRole(freezerRole, tokenAgent, 0);
+        p.accessManager.grantRole(minterRole, tokenAgent, 0);
         vm.stopPrank();
 
         p.registerIdentity(vm, identityRegistryAgent, userA);
@@ -176,8 +167,14 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(userA);
-        vm.expectRevert(); // wallet is frozen
-        token.transfer(userB, 10);
+        try token.transfer(userB, 10) returns (bool ok) {
+            assertFalse(ok);
+            fail('Expected transfer to revert');
+        } catch Error(string memory reason) {
+            assertEq(reason, 'wallet is frozen');
+        } catch {
+            fail('Unexpected revert');
+        }
 
         vm.startPrank(tokenAgent);
         p.tokenController.setFrozen(address(token), userA, false);
@@ -186,7 +183,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         p.registerIdentity(vm, identityRegistryAgent, userB);
 
         vm.prank(userA);
-        token.transfer(userB, 10);
+        require(token.transfer(userB, 10), 'Transfer failed');
         assertEq(token.balanceOf(userB), 10);
     }
 
@@ -199,9 +196,9 @@ contract TokenControllerTest is Test, ProtocolFixture {
         );
         vm.stopPrank();
         vm.startPrank(multisig);
-        p.accessManager.grantRole(PAUSER_ROLE, tokenAgent, 0);
-        p.accessManager.grantRole(MINTER_ROLE, tokenAgent, 0);
-        p.accessManager.grantRole(FORCE_ROLE, tokenAgent, 0);
+        p.accessManager.grantRole(pauserRole, tokenAgent, 0);
+        p.accessManager.grantRole(minterRole, tokenAgent, 0);
+        p.accessManager.grantRole(forceRole, tokenAgent, 0);
         vm.stopPrank();
 
         p.registerIdentity(vm, identityRegistryAgent, userA);
@@ -230,8 +227,8 @@ contract TokenControllerTest is Test, ProtocolFixture {
         p.tokenController.unpause(address(token));
 
         vm.startPrank(multisig);
-        p.accessManager.grantRole(MINTER_ROLE, userA, 0);
-        p.accessManager.grantRole(RECOVERY_ROLE, userA, 0);
+        p.accessManager.grantRole(minterRole, userA, 0);
+        p.accessManager.grantRole(recoveryRole, userA, 0);
         vm.stopPrank();
 
         p.registerIdentity(vm, identityRegistryAgent, userB); // lost wallet

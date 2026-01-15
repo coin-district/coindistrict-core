@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.22;
 
-import '@openzeppelin/contracts-v5/access/manager/AccessManager.sol';
+import {AccessManager} from '@openzeppelin/contracts-v5/access/manager/AccessManager.sol';
 
 /**
  * @title Governance
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.22.0
  * @notice Centralized governance contract using OpenZeppelin AccessManager
  * @dev Compiled with Solidity 0.8.22 to use AccessManager from OpenZeppelin 5.x
  * This contract acts as a bridge between 0.8.17 protocol contracts and 0.8.22 AccessManager
@@ -15,7 +15,7 @@ import '@openzeppelin/contracts-v5/access/manager/AccessManager.sol';
  * This contract implements the same interface but cannot import it due to version mismatch.
  */
 contract Governance {
-    AccessManager private immutable _accessManager;
+    AccessManager private immutable _ACCESS_MANAGER;
 
     // Role IDs (uint64)
     uint64 public constant ADMIN_ROLE = 0;
@@ -38,14 +38,14 @@ contract Governance {
      */
     constructor(address accessManager_) {
         require(accessManager_ != address(0), 'Governance_InvalidAccessManager');
-        _accessManager = AccessManager(accessManager_);
+        _ACCESS_MANAGER = AccessManager(accessManager_);
     }
 
     /**
      * @dev See {IGovernance.hasRole}
      */
     function hasRole(address caller, address target, bytes4 selector) external view returns (bool) {
-        (bool immediate, ) = _accessManager.canCall(caller, target, selector);
+        (bool immediate, ) = _ACCESS_MANAGER.canCall(caller, target, selector);
         return immediate;
     }
 
@@ -57,13 +57,13 @@ contract Governance {
         address target,
         bytes4 selector
     ) external view returns (bool immediate, uint32 delay) {
-        return _accessManager.canCall(caller, target, selector);
+        return _ACCESS_MANAGER.canCall(caller, target, selector);
     }
 
     /**
      * @dev See {IGovernance.accessManager}
      */
     function accessManager() external view returns (address) {
-        return address(_accessManager);
+        return address(_ACCESS_MANAGER);
     }
 }

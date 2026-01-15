@@ -3,17 +3,16 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.22.0
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
 
-import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
-import '@erc3643org/erc-3643/contracts/factory/TREXFactory.sol';
-import '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
-import './SalesManager.sol';
-import './governance/IGovernance.sol';
-import './IFactory.sol';
+import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
+import {TREXFactory} from '@erc3643org/erc-3643/contracts/factory/TREXFactory.sol';
+import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
+import {IGovernance} from './governance/IGovernance.sol';
+import {IFactory} from './IFactory.sol';
 
 /**
  * @title Factory
@@ -37,6 +36,8 @@ contract Factory is IFactory, UUPSUpgradeable {
 
     // Governance interface
     IGovernance public governance;
+
+    uint256[50] private __gap;
 
     /**
      * @param _trexFactoryAddr Address of the TREXFactory this contract must own
@@ -66,8 +67,12 @@ contract Factory is IFactory, UUPSUpgradeable {
     }
 
     modifier onlyGov() {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'Factory_NotAuthorized');
+        _onlyGov();
         _;
+    }
+
+    function _onlyGov() internal view {
+        require(governance.hasRole(msg.sender, address(this), msg.sig), 'Factory_NotAuthorized');
     }
 
     function _authorizeUpgrade(address /*newImplementation*/) internal view override {
@@ -174,7 +179,11 @@ contract Factory is IFactory, UUPSUpgradeable {
         ITREXFactory.TokenDetails memory _tokenDetails,
         ITREXFactory.ClaimDetails memory _claimDetails
     ) internal returns (address) {
-        bytes32 _symbolKey = keccak256(abi.encode(_tokenDetails.symbol));
+        bytes memory symbolBytes = bytes(_tokenDetails.symbol);
+        bytes32 _symbolKey;
+        assembly ('memory-safe') {
+            _symbolKey := keccak256(add(symbolBytes, 0x20), mload(symbolBytes))
+        }
         require(!_usedSymbols[_symbolKey], 'Factory_SymbolAlreadyUsed');
 
         string memory authorityBoundSalt = string(abi.encodePacked(_salt, address(governance)));
@@ -199,6 +208,4 @@ contract Factory is IFactory, UUPSUpgradeable {
     function trexFactory() public view override returns (address) {
         return address(_trexFactory);
     }
-
-    uint256[50] private __gap;
 }

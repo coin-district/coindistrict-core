@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title ITokenController
  * @author CoinDistrict
- * @dev Version: 0.21.0
+ * @dev Version: 0.22.0
  * @notice Interface for the TokenController contract
  * @dev Provides granular, role- and capability-gated wrappers around ERC-3643 Token agent actions
  * @dev For role values, see Governance.sol constants
@@ -128,7 +128,7 @@ interface ITokenController {
      * @param token The ERC-3643 token address
      * @param lostWallet The wallet considered lost
      * @param newWallet The replacement wallet
-     * @param investorOnchainID The investor's ONCHAINID contract address
+     * @param investorOnchainId The investor's ONCHAINID contract address
      */
-    function recover(address token, address lostWallet, address newWallet, address investorOnchainID) external;
+    function recover(address token, address lostWallet, address newWallet, address investorOnchainId) external;
 }
