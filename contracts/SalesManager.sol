@@ -26,6 +26,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
 
     /// Constants
     uint8 private constant PRICE_USD_DECIMALS = 8;
+    uint256 private constant DEFAULT_MAX_ORACLE_DELAY_SECONDS = 2 hours;
 
     // Governance interface
     IGovernance public governance;
@@ -36,6 +37,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         __ReentrancyGuard_init();
         require(governance_ != address(0), 'SalesManager_InvalidGovernance');
         governance = IGovernance(governance_);
+        maxOracleDelaySeconds = DEFAULT_MAX_ORACLE_DELAY_SECONDS;
     }
 
     modifier onlyGov() {
@@ -410,6 +412,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.setMaxOracleDelaySeconds}
      */
     function setMaxOracleDelaySeconds(uint256 seconds_) external onlyGov {
+        require(seconds_ >= 5 minutes && seconds_ <= 24 hours, 'Sale_InvalidOracleDelay');
         uint256 oldDelay = maxOracleDelaySeconds;
         maxOracleDelaySeconds = seconds_;
         emit MaxOracleDelayUpdated(oldDelay, seconds_);
