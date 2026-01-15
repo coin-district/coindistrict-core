@@ -17,14 +17,6 @@ contract SecondaryTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
     uint256 constant DEFAULT_MAX_SUPPLY = 1000;
 
-    // roles
-    uint64 constant ADMIN_ROLE = 0;
-    uint64 constant UPGRADER_ROLE = 1;
-    uint64 constant SHARE_DEPLOYER_ROLE = 2;
-    uint64 constant PAUSER_ROLE = 7;
-    uint64 constant MINTER_ROLE = 8;
-    uint64 constant FREEZER_ROLE = 11;
-
     // accounts
     address internal multisig = vm.addr(2);
     address internal identityRegistryAgent = vm.addr(3);

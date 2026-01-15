@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import {Test} from 'forge-std/Test.sol';
-import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
+import {ProtocolFixture, Protocol, Accounts, RoleIds} from './fixtures/ProtocolFixture.sol';
 import {ShareTestUtils} from './utils/ShareTestUtils.sol';
 import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
@@ -38,15 +38,16 @@ contract TokenControllerTest is Test, ProtocolFixture {
         addGlobalIrAgents(p, acc);
 
         tc = TokenController(address(p.tokenController));
-        adminRole = p.governance.ADMIN_ROLE();
-        upgraderRole = p.governance.UPGRADER_ROLE();
-        shareDeployerRole = p.governance.SHARE_DEPLOYER_ROLE();
-        pauserRole = p.governance.PAUSER_ROLE();
-        minterRole = p.governance.MINTER_ROLE();
-        burnerRole = p.governance.BURNER_ROLE();
-        freezerRole = p.governance.FREEZER_ROLE();
-        forceRole = p.governance.FORCE_ROLE();
-        recoveryRole = p.governance.RECOVERY_ROLE();
+        RoleIds memory roles = _loadRoleIds();
+        adminRole = roles.admin;
+        upgraderRole = roles.upgrader;
+        shareDeployerRole = roles.shareDeployer;
+        pauserRole = roles.pauser;
+        minterRole = roles.minter;
+        burnerRole = roles.burner;
+        freezerRole = roles.freezer;
+        forceRole = roles.force;
+        recoveryRole = roles.recovery;
 
         multisig = acc.multisig;
         identityRegistryAgent = acc.identityRegistryAgent;

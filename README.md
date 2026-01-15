@@ -46,6 +46,7 @@ Remappings for all of the above are defined in `foundry.toml` / `remappings.txt`
 
 - **`config/`**
   - **`role-and-delays.json`** – **Single source of truth** for:
+    - `roleIds`: numeric role identifiers used by `AccessManager`.
     - `executionDelaysSeconds`: the timelock delays per role used by governance.
     - `permissions`: mapping of contract function names to role identifiers (for `Factory`, `SalesManager`, and `TokenController`).
   - This file is consumed by Foundry tests (via `ProtocolFixture`) and by ops/deployment tooling to keep environments in sync.
@@ -105,8 +106,8 @@ After installation, `foundry.toml` remappings will resolve imports like `@openze
 
 The protocol uses **OpenZeppelin `AccessManager`** plus a thin `Governance` contract to control privileged actions across `Factory`, `SalesManager`, and `TokenController`.
 
-- **Roles & delays**
-  - Defined once in `config/role-and-delays.json` under `executionDelaysSeconds`.
+- **Roles, IDs & delays**
+  - Role IDs and delays are defined once in `config/role-and-delays.json` under `roleIds` and `executionDelaysSeconds`.
   - Consumed by tests (via `ProtocolFixture` and `_ensureRoleConfigLoaded`) to configure `AccessManager`.
   - Mirrored for humans in `roles-and-delays.toml` and described in detail in `docs/role-config-spec.md`.
 

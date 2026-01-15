@@ -75,14 +75,30 @@ struct Accounts {
     address user2;
 }
 
+struct RoleIds {
+    uint64 admin;
+    uint64 upgrader;
+    uint64 shareDeployer;
+    uint64 salesConfig;
+    uint64 salesOperator;
+    uint64 fundsAdmin;
+    uint64 fiatOrder;
+    uint64 pauser;
+    uint64 minter;
+    uint64 burner;
+    uint64 freezer;
+    uint64 force;
+    uint64 recovery;
+}
+
 abstract contract ProtocolFixture is Test {
     address internal constant ZERO = address(0);
     uint32 internal constant ONE_DAY = 1 days;
     uint32 internal constant TWO_DAYS = 2 days;
     uint32 internal constant THREE_DAYS = 3 days;
+    string internal constant ROLE_CONFIG_PATH = 'config/role-and-delays.json';
 
-    // NOTE: JSON-based role/delay configuration is now resolved outside Solidity.
-    // Solidity tests consume only strongly-typed data (Permission structs, role IDs, selectors).
+    // NOTE: JSON-based role/delay configuration is now resolved via Foundry cheatcodes.
 
     function defaultAccounts() internal pure returns (Accounts memory a) {
         a.multisig = vm.addr(2);
@@ -209,23 +225,24 @@ abstract contract ProtocolFixture is Test {
     }
 
     function defaultRoleSetup(Protocol memory p, Accounts memory a) internal {
+        RoleIds memory roles = _loadRoleIds();
         // Apply strongly-typed permissions
         Permission[] memory perms = _defaultPermissions(p);
         _applyPermissions(p, a.multisig, perms);
 
         // Grant roles (multisig is admin)
-        _grantRole(p, a.multisig, p.governance.UPGRADER_ROLE(), a.multisig);
-        _grantRole(p, a.multisig, p.governance.SHARE_DEPLOYER_ROLE(), a.factoryShareDeployer);
-        _grantRole(p, a.multisig, p.governance.SALES_CONFIG_ROLE(), a.salesManagerSalesConfig);
-        _grantRole(p, a.multisig, p.governance.SALES_OPERATOR_ROLE(), a.salesManagerSalesOperator);
-        _grantRole(p, a.multisig, p.governance.FUNDS_ADMIN_ROLE(), a.salesManagerFundsAdmin);
-        _grantRole(p, a.multisig, p.governance.FIAT_ORDER_ROLE(), a.fiatOrderSigner);
-        _grantRole(p, a.multisig, p.governance.PAUSER_ROLE(), a.tokenAgent);
-        _grantRole(p, a.multisig, p.governance.MINTER_ROLE(), a.tokenAgent);
-        _grantRole(p, a.multisig, p.governance.BURNER_ROLE(), a.tokenAgent);
-        _grantRole(p, a.multisig, p.governance.FREEZER_ROLE(), a.tokenAgent);
-        _grantRole(p, a.multisig, p.governance.FORCE_ROLE(), a.tokenAgent);
-        _grantRole(p, a.multisig, p.governance.RECOVERY_ROLE(), a.tokenAgent);
+        _grantRole(p, a.multisig, roles.upgrader, a.multisig);
+        _grantRole(p, a.multisig, roles.shareDeployer, a.factoryShareDeployer);
+        _grantRole(p, a.multisig, roles.salesConfig, a.salesManagerSalesConfig);
+        _grantRole(p, a.multisig, roles.salesOperator, a.salesManagerSalesOperator);
+        _grantRole(p, a.multisig, roles.fundsAdmin, a.salesManagerFundsAdmin);
+        _grantRole(p, a.multisig, roles.fiatOrder, a.fiatOrderSigner);
+        _grantRole(p, a.multisig, roles.pauser, a.tokenAgent);
+        _grantRole(p, a.multisig, roles.minter, a.tokenAgent);
+        _grantRole(p, a.multisig, roles.burner, a.tokenAgent);
+        _grantRole(p, a.multisig, roles.freezer, a.tokenAgent);
+        _grantRole(p, a.multisig, roles.force, a.tokenAgent);
+        _grantRole(p, a.multisig, roles.recovery, a.tokenAgent);
     }
 
     function addGlobalIrAgents(Protocol memory p, Accounts memory a) internal {
@@ -253,6 +270,30 @@ abstract contract ProtocolFixture is Test {
         p.accessManager.grantRole(roleId, account, 0);
     }
 
+    function _loadRoleIds() internal view returns (RoleIds memory roles) {
+        // forge-lint: disable-next-line(unsafe-cheatcode)
+        string memory json = vm.readFile(ROLE_CONFIG_PATH);
+
+        roles.admin = _parseRoleId(json, 'ADMIN_ROLE');
+        roles.upgrader = _parseRoleId(json, 'UPGRADER_ROLE');
+        roles.shareDeployer = _parseRoleId(json, 'SHARE_DEPLOYER_ROLE');
+        roles.salesConfig = _parseRoleId(json, 'SALES_CONFIG_ROLE');
+        roles.salesOperator = _parseRoleId(json, 'SALES_OPERATOR_ROLE');
+        roles.fundsAdmin = _parseRoleId(json, 'FUNDS_ADMIN_ROLE');
+        roles.fiatOrder = _parseRoleId(json, 'FIAT_ORDER_ROLE');
+        roles.pauser = _parseRoleId(json, 'PAUSER_ROLE');
+        roles.minter = _parseRoleId(json, 'MINTER_ROLE');
+        roles.burner = _parseRoleId(json, 'BURNER_ROLE');
+        roles.freezer = _parseRoleId(json, 'FREEZER_ROLE');
+        roles.force = _parseRoleId(json, 'FORCE_ROLE');
+        roles.recovery = _parseRoleId(json, 'RECOVERY_ROLE');
+    }
+
+    function _parseRoleId(string memory json, string memory name) internal view returns (uint64) {
+        bytes memory raw = vm.parseJson(json, string.concat('.roleIds.', name));
+        return uint64(abi.decode(raw, (uint256)));
+    }
+
     function _toSingle(bytes4 selector) internal pure returns (bytes4[] memory arr) {
         arr = new bytes4[](1);
         arr[0] = selector;
@@ -272,19 +313,7 @@ abstract contract ProtocolFixture is Test {
         // 5 (Factory) + 18 (SalesManager) + 11 (TokenController) = 34
         perms = new Permission[](34);
 
-        uint64 adminRole = p.governance.ADMIN_ROLE();
-        uint64 upgraderRole = p.governance.UPGRADER_ROLE();
-        uint64 shareDeployerRole = p.governance.SHARE_DEPLOYER_ROLE();
-        uint64 salesOperatorRole = p.governance.SALES_OPERATOR_ROLE();
-        uint64 salesConfigRole = p.governance.SALES_CONFIG_ROLE();
-        uint64 fundsAdminRole = p.governance.FUNDS_ADMIN_ROLE();
-        uint64 fiatOrderRole = p.governance.FIAT_ORDER_ROLE();
-        uint64 pauserRole = p.governance.PAUSER_ROLE();
-        uint64 minterRole = p.governance.MINTER_ROLE();
-        uint64 burnerRole = p.governance.BURNER_ROLE();
-        uint64 freezerRole = p.governance.FREEZER_ROLE();
-        uint64 forceRole = p.governance.FORCE_ROLE();
-        uint64 recoveryRole = p.governance.RECOVERY_ROLE();
+        RoleIds memory roles = _loadRoleIds();
 
         uint256 i;
 
@@ -292,176 +321,176 @@ abstract contract ProtocolFixture is Test {
         perms[i++] = Permission({
             target: address(p.factory),
             selector: IUUPSUpgradeableLike.upgradeTo.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.factory),
             selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.factory),
             selector: Factory.editMaxSupplyModule.selector,
-            roleId: adminRole
+            roleId: roles.admin
         });
         perms[i++] = Permission({
             target: address(p.factory),
             selector: Factory.deployShareSuite.selector,
-            roleId: adminRole
+            roleId: roles.admin
         });
         perms[i++] = Permission({
             target: address(p.factory),
             selector: Factory.createShare.selector,
-            roleId: shareDeployerRole
+            roleId: roles.shareDeployer
         });
 
         // SalesManager (upgrade selectors live on the UUPS proxy)
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: IUUPSUpgradeableLike.upgradeTo.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.rescueTokens.selector,
-            roleId: fundsAdminRole
+            roleId: roles.fundsAdmin
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.withdrawFunds.selector,
-            roleId: fundsAdminRole
+            roleId: roles.fundsAdmin
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.updateSaleFundsRecipient.selector,
-            roleId: fundsAdminRole
+            roleId: roles.fundsAdmin
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.setAllowedPaymentToken.selector,
-            roleId: salesConfigRole
+            roleId: roles.salesConfig
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.setPaymentTokenOracle.selector,
-            roleId: salesConfigRole
+            roleId: roles.salesConfig
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.setMaxOracleDelaySeconds.selector,
-            roleId: salesConfigRole
+            roleId: roles.salesConfig
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.setEmergencyPause.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.unsetEmergencyPause.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.createSale.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.cancelSale.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.pauseSale.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.unpauseSale.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.updateSalePriceUsdPerShare.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.updateSaleDeadline.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.updateSalePaymentTokensAllowed.selector,
-            roleId: salesOperatorRole
+            roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.fulfillFiatOrder.selector,
-            roleId: fiatOrderRole
+            roleId: roles.fiatOrder
         });
 
         // TokenController (upgrade selectors live on the UUPS proxy)
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: IUUPSUpgradeableLike.upgradeTo.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
-            roleId: upgraderRole
+            roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.setTokenCaps.selector,
-            roleId: adminRole
+            roleId: roles.admin
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.setTokenCapsInitial.selector,
-            roleId: shareDeployerRole
+            roleId: roles.shareDeployer
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.pause.selector,
-            roleId: pauserRole
+            roleId: roles.pauser
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.unpause.selector,
-            roleId: pauserRole
+            roleId: roles.pauser
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.recover.selector,
-            roleId: recoveryRole
+            roleId: roles.recovery
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.mint.selector,
-            roleId: minterRole
+            roleId: roles.minter
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.burn.selector,
-            roleId: burnerRole
+            roleId: roles.burner
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.forceTransfer.selector,
-            roleId: forceRole
+            roleId: roles.force
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
             selector: TokenController.setFrozen.selector,
-            roleId: freezerRole
+            roleId: roles.freezer
         });
     }
 
