@@ -6,7 +6,7 @@ import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.
 /**
  * @title IFactory
  * @author CoinDistrict
- * @dev Version: 0.22.0
+ * @dev Version: 0.23.1
  * @notice Interface for the Factory contract
  * @dev For role values, see Governance.sol constants
  * See {Factory} for usage and more details.
