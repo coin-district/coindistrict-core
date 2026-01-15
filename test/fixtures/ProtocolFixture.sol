@@ -289,7 +289,7 @@ abstract contract ProtocolFixture is Test {
         roles.recovery = _parseRoleId(json, 'RECOVERY_ROLE');
     }
 
-    function _parseRoleId(string memory json, string memory name) internal view returns (uint64) {
+    function _parseRoleId(string memory json, string memory name) internal pure returns (uint64) {
         bytes memory raw = vm.parseJson(json, string.concat('.roleIds.', name));
         return uint64(abi.decode(raw, (uint256)));
     }
