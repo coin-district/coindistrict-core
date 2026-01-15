@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import {Test, console2} from 'forge-std/Test.sol';
-import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
+import {ProtocolFixture, Protocol, Accounts, RoleIds} from './fixtures/ProtocolFixture.sol';
 import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
 import {IModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
@@ -58,75 +58,76 @@ contract FactoryTest is Test, ProtocolFixture {
     }
 
     function _configureAccessManager() internal {
+        RoleIds memory roles = _loadRoleIds();
         // Factory permissions
         vm.prank(multisig);
-        _setRoleForSelector(address(p.factory), 'upgradeTo(address)', 1);
+        _setRoleForSelector(address(p.factory), 'upgradeTo(address)', roles.upgrader);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.factory), 'upgradeToAndCall(address,bytes)', 1);
+        _setRoleForSelector(address(p.factory), 'upgradeToAndCall(address,bytes)', roles.upgrader);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.factory), 'editMaxSupplyModule(address)', 0);
+        _setRoleForSelector(address(p.factory), 'editMaxSupplyModule(address)', roles.admin);
         vm.prank(multisig);
         _setRoleForSelector(
             address(p.factory),
             'deployShareSuite(string,(address,string,string,uint8,address,address,address[],address[],address[],bytes[],bytes[]),(uint256[],address[],uint256[][]))',
-            0
+            roles.admin
         );
         vm.prank(multisig);
         _setRoleForSelector(
             address(p.factory),
             'createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)',
-            2
+            roles.shareDeployer
         );
 
         // TokenController permissions
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'upgradeTo(address)', 1);
+        _setRoleForSelector(address(p.tokenController), 'upgradeTo(address)', roles.upgrader);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'upgradeToAndCall(address,bytes)', 1);
+        _setRoleForSelector(address(p.tokenController), 'upgradeToAndCall(address,bytes)', roles.upgrader);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'setTokenCaps(address,uint256)', 0);
+        _setRoleForSelector(address(p.tokenController), 'setTokenCaps(address,uint256)', roles.admin);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'setTokenCapsInitial(address,uint256)', 2);
+        _setRoleForSelector(address(p.tokenController), 'setTokenCapsInitial(address,uint256)', roles.shareDeployer);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'pause(address)', 7);
+        _setRoleForSelector(address(p.tokenController), 'pause(address)', roles.pauser);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'unpause(address)', 7);
+        _setRoleForSelector(address(p.tokenController), 'unpause(address)', roles.pauser);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'mint(address,address,uint256)', 8);
+        _setRoleForSelector(address(p.tokenController), 'mint(address,address,uint256)', roles.minter);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'burn(address,address,uint256)', 10);
+        _setRoleForSelector(address(p.tokenController), 'burn(address,address,uint256)', roles.burner);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'forceTransfer(address,address,address,uint256)', 12);
+        _setRoleForSelector(address(p.tokenController), 'forceTransfer(address,address,address,uint256)', roles.force);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'setFrozen(address,address,bool)', 11);
+        _setRoleForSelector(address(p.tokenController), 'setFrozen(address,address,bool)', roles.freezer);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.tokenController), 'recover(address,address,address,address)', 13);
+        _setRoleForSelector(address(p.tokenController), 'recover(address,address,address,address)', roles.recovery);
 
         // SalesManager permissions (minimal for these tests)
         vm.prank(multisig);
-        _setRoleForSelector(address(p.salesManager), 'upgradeTo(address)', 1);
+        _setRoleForSelector(address(p.salesManager), 'upgradeTo(address)', roles.upgrader);
         vm.prank(multisig);
-        _setRoleForSelector(address(p.salesManager), 'upgradeToAndCall(address,bytes)', 1);
+        _setRoleForSelector(address(p.salesManager), 'upgradeToAndCall(address,bytes)', roles.upgrader);
 
         // Grant roles
         vm.prank(multisig);
-        _grantRole(0, multisig); // ADMIN_ROLE
+        _grantRole(roles.admin, multisig);
         vm.prank(multisig);
-        _grantRole(1, multisig); // UPGRADER_ROLE
+        _grantRole(roles.upgrader, multisig);
         vm.prank(multisig);
-        _grantRole(2, factoryShareDeployer); // SHARE_DEPLOYER_ROLE
+        _grantRole(roles.shareDeployer, factoryShareDeployer);
         vm.prank(multisig);
-        _grantRole(7, tokenAgent); // PAUSER_ROLE
+        _grantRole(roles.pauser, tokenAgent);
         vm.prank(multisig);
-        _grantRole(8, tokenAgent); // MINTER_ROLE
+        _grantRole(roles.minter, tokenAgent);
         vm.prank(multisig);
-        _grantRole(10, tokenAgent); // BURNER_ROLE
+        _grantRole(roles.burner, tokenAgent);
         vm.prank(multisig);
-        _grantRole(11, tokenAgent); // FREEZER_ROLE
+        _grantRole(roles.freezer, tokenAgent);
         vm.prank(multisig);
-        _grantRole(12, tokenAgent); // FORCE_ROLE
+        _grantRole(roles.force, tokenAgent);
         vm.prank(multisig);
-        _grantRole(13, tokenAgent); // RECOVERY_ROLE
+        _grantRole(roles.recovery, tokenAgent);
     }
 
     function _addGlobalIrAgents() internal {
@@ -522,16 +523,17 @@ contract FactoryTest is Test, ProtocolFixture {
             address(p.governance)
         );
 
+        RoleIds memory roles = _loadRoleIds();
         // allow createShare selector on rogue so it passes governance check
         vm.prank(multisig);
         _setRoleForSelector(
             address(rogue),
             'createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)',
-            2
+            roles.shareDeployer
         );
         address attacker = vm.addr(77);
         vm.prank(multisig);
-        p.accessManager.grantRole(2, attacker, 0);
+        p.accessManager.grantRole(roles.shareDeployer, attacker, 0);
 
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         vm.prank(attacker);
@@ -797,6 +799,7 @@ contract FactoryTest is Test, ProtocolFixture {
     }
 
     function test_AdminGrantsAndRevokesShareDeployerRole() public {
+        RoleIds memory roles = _loadRoleIds();
         address attacker = vm.addr(55);
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
 
@@ -819,7 +822,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
         // multisig (admin) grants role
         vm.prank(multisig);
-        p.accessManager.grantRole(2, attacker, 0); // SHARE_DEPLOYER_ROLE
+        p.accessManager.grantRole(roles.shareDeployer, attacker, 0);
 
         // now succeeds
         vm.prank(attacker);
@@ -839,7 +842,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
         // revoke and ensure revert
         vm.prank(multisig);
-        p.accessManager.revokeRole(2, attacker);
+        p.accessManager.revokeRole(roles.shareDeployer, attacker);
         vm.prank(attacker);
         vm.expectRevert(bytes('Factory_NotAuthorized'));
         p.factory.createShare(

@@ -17,21 +17,6 @@ import {AccessManager} from '@openzeppelin/contracts-v5/access/manager/AccessMan
 contract Governance {
     AccessManager private immutable _ACCESS_MANAGER;
 
-    // Role IDs (uint64)
-    uint64 public constant ADMIN_ROLE = 0;
-    uint64 public constant UPGRADER_ROLE = 1;
-    uint64 public constant SHARE_DEPLOYER_ROLE = 2;
-    uint64 public constant SALES_CONFIG_ROLE = 3;
-    uint64 public constant SALES_OPERATOR_ROLE = 4;
-    uint64 public constant FUNDS_ADMIN_ROLE = 5;
-    uint64 public constant FIAT_ORDER_ROLE = 6;
-    uint64 public constant PAUSER_ROLE = 7;
-    uint64 public constant MINTER_ROLE = 8;
-    uint64 public constant BURNER_ROLE = 9;
-    uint64 public constant FREEZER_ROLE = 10;
-    uint64 public constant FORCE_ROLE = 11;
-    uint64 public constant RECOVERY_ROLE = 12;
-
     /**
      * @notice Initialize the Governance contract with an AccessManager
      * @param accessManager_ The AccessManager contract address

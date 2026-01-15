@@ -369,7 +369,7 @@
         "internalType": "address"
       },
       {
-        "name": "investorOnchainID",
+        "name": "investorOnchainId",
         "type": "address",
         "internalType": "address"
       }

@@ -1,4 +1,19 @@
 {
+  "roleIds": {
+    "ADMIN_ROLE": 0,
+    "UPGRADER_ROLE": 1,
+    "SHARE_DEPLOYER_ROLE": 2,
+    "SALES_CONFIG_ROLE": 3,
+    "SALES_OPERATOR_ROLE": 4,
+    "FUNDS_ADMIN_ROLE": 5,
+    "FIAT_ORDER_ROLE": 6,
+    "PAUSER_ROLE": 7,
+    "MINTER_ROLE": 8,
+    "BURNER_ROLE": 9,
+    "FREEZER_ROLE": 10,
+    "FORCE_ROLE": 11,
+    "RECOVERY_ROLE": 12
+  },
   "executionDelaysSeconds": {
     "ADMIN_ROLE": 259200,
     "UPGRADER_ROLE": 172800,

@@ -7,6 +7,7 @@ pragma solidity 0.8.17;
  * @dev Version: 0.22.0
  * @notice Interface for governance contract that manages access control
  * @dev This interface allows 0.8.17 contracts to interact with 0.8.22 AccessManager-based governance
+ * @dev Role IDs are defined off-chain in config/role-and-delays.json
  */
 interface IGovernance {
     /**
@@ -38,30 +39,4 @@ interface IGovernance {
      */
     function accessManager() external view returns (address);
 
-    // Role getters (source of truth lives in Governance.sol compiled at 0.8.22)
-    function ADMIN_ROLE() external view returns (uint64);
-
-    function UPGRADER_ROLE() external view returns (uint64);
-
-    function SHARE_DEPLOYER_ROLE() external view returns (uint64);
-
-    function SALES_CONFIG_ROLE() external view returns (uint64);
-
-    function SALES_OPERATOR_ROLE() external view returns (uint64);
-
-    function FUNDS_ADMIN_ROLE() external view returns (uint64);
-
-    function FIAT_ORDER_ROLE() external view returns (uint64);
-
-    function PAUSER_ROLE() external view returns (uint64);
-
-    function MINTER_ROLE() external view returns (uint64);
-
-    function BURNER_ROLE() external view returns (uint64);
-
-    function FREEZER_ROLE() external view returns (uint64);
-
-    function FORCE_ROLE() external view returns (uint64);
-
-    function RECOVERY_ROLE() external view returns (uint64);
 }
