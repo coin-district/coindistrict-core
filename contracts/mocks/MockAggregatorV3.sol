@@ -1,27 +1,27 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import '../interfaces/IAggregatorV3Interface.sol';
+import {AggregatorV3Interface} from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
 
 /**
  * @title MockAggregatorV3
  * @notice Mock Chainlink AggregatorV3Interface for testing
  */
 contract MockAggregatorV3 is AggregatorV3Interface {
-    uint8 private immutable _decimals;
+    uint8 private immutable _DECIMALS;
     int256 private _price;
     uint80 private _roundId;
     uint256 private _updatedAt;
 
     constructor(uint8 decimals_, int256 initialPrice) {
-        _decimals = decimals_;
+        _DECIMALS = decimals_;
         _price = initialPrice;
         _roundId = 1;
         _updatedAt = block.timestamp;
     }
 
     function decimals() external view override returns (uint8) {
-        return _decimals;
+        return _DECIMALS;
     }
 
     function description() external pure override returns (string memory) {
@@ -33,14 +33,14 @@ contract MockAggregatorV3 is AggregatorV3Interface {
     }
 
     function getRoundData(
-        uint80 _roundId
+        uint80 roundId_
     )
         external
         view
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (_roundId, _price, block.timestamp, _updatedAt, _roundId);
+        return (roundId_, _price, block.timestamp, _updatedAt, roundId_);
     }
 
     function latestRoundData()

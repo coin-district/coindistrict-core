@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import 'forge-std/Test.sol';
+import {Test, console2} from 'forge-std/Test.sol';
 import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
 import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
-import {IIdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/interface/IIdentityRegistry.sol';
 import {IModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
 import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
@@ -13,7 +12,6 @@ import {IdentityRegistryStorageProxy} from '@erc3643org/erc-3643/contracts/proxy
 import {IdentityRegistryStorage} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol';
 import {Factory} from 'contracts/Factory.sol';
 import {ERC1967Proxy} from '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol';
-import {ITREXImplementationAuthority} from '@erc3643org/erc-3643/contracts/proxy/authority/ITREXImplementationAuthority.sol';
 import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
 import {MaxSupplyModule} from 'contracts/compliance/modules/MaxSupplyModule.sol';
 

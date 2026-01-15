@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import 'forge-std/Test.sol';
+import {Test} from 'forge-std/Test.sol';
 import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
 import {ShareTestUtils} from './utils/ShareTestUtils.sol';
 
@@ -14,10 +14,6 @@ import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/im
 import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
 import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
 
-import {MaxSupplyModule} from 'contracts/compliance/modules/MaxSupplyModule.sol';
-import {SalesManager} from 'contracts/SalesManager.sol';
-import {TokenController} from 'contracts/TokenController.sol';
-import {Factory} from 'contracts/Factory.sol';
 import {MockToken} from 'contracts/mocks/MockToken.sol';
 import {MockFeeOnTransferToken} from 'contracts/mocks/MockFeeOnTransferToken.sol';
 import {MockAggregatorV3} from 'contracts/mocks/MockAggregatorV3.sol';
@@ -63,6 +59,7 @@ contract SalesTest is Test, ProtocolFixture {
     function test_buy_open_token_succeeds_after_allowlist_and_unpause() public {
         vm.startPrank(factoryShareDeployer);
         Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'SALE', 'SAL', DEFAULT_MAX_SUPPLY);
+
         // prepare controller: set caps, unpause
         uint256 PAUSABLE_BIT = 1 << 1;
         p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
@@ -416,14 +413,14 @@ contract SalesTest is Test, ProtocolFixture {
 
         vm.startPrank(fiatOrderSigner);
         vm.expectRevert(bytes('Sale_Paused'));
-        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, bytes32('ref'));
+        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes('ref')));
         vm.stopPrank();
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.unpauseSale(saleId);
 
         vm.prank(fiatOrderSigner);
-        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, bytes32('ref'));
+        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes('ref')));
         assertEq(token.balanceOf(recipient), 10);
         (, , , uint256 remaining, , , , , ) = p.salesManager.sales(saleId);
         assertEq(remaining, 40);

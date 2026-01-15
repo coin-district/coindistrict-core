@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import './AccessManagerMock.sol';
+import {AccessManagerMock} from './AccessManagerMock.sol';
 
 contract GovernanceMock {
-    AccessManagerMock private immutable _accessManager;
+    AccessManagerMock private immutable _ACCESS_MANAGER;
 
     constructor(address accessManager_) {
-        _accessManager = AccessManagerMock(accessManager_);
+        _ACCESS_MANAGER = AccessManagerMock(accessManager_);
     }
 
     function hasRole(address caller, address target, bytes4 selector) external view returns (bool) {
-        (bool immediate, ) = _accessManager.canCall(caller, target, selector);
+        (bool immediate, ) = _ACCESS_MANAGER.canCall(caller, target, selector);
         return immediate;
     }
 
@@ -20,10 +20,10 @@ contract GovernanceMock {
         address target,
         bytes4 selector
     ) external view returns (bool immediate, uint32 delay) {
-        return _accessManager.canCall(caller, target, selector);
+        return _ACCESS_MANAGER.canCall(caller, target, selector);
     }
 
     function accessManager() external view returns (address) {
-        return address(_accessManager);
+        return address(_ACCESS_MANAGER);
     }
 }

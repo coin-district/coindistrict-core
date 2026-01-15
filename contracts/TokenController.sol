@@ -5,12 +5,12 @@ import {Initializable} from '@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
 import {IToken} from '@erc3643org/erc-3643/contracts/token/IToken.sol';
 import {ITokenController} from './ITokenController.sol';
-import './governance/IGovernance.sol';
+import {IGovernance} from './governance/IGovernance.sol';
 
 /**
  * @title TokenController
  * @author CoinDistrict
- * @dev Version: 0.21.2
+ * @dev Version: 0.22.0
  * @notice Upgradeable controller that acts as ERC-3643 Token agent and provides granular capability gating
  */
 contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
@@ -28,6 +28,8 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
     /// @notice Capability bitmask by token
     mapping(address => uint256) public capabilitiesByToken;
 
+    uint256[50] private _gap;
+
     function initialize(address governance_) external initializer {
         __UUPSUpgradeable_init();
         require(governance_ != address(0), 'TokenController_InvalidGovernance');
@@ -35,8 +37,12 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
     }
 
     modifier onlyGov() {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'TokenController_NotAuthorized');
+        _onlyGov();
         _;
+    }
+
+    function _onlyGov() internal view {
+        require(governance.hasRole(msg.sender, address(this), msg.sig), 'TokenController_NotAuthorized');
     }
 
     function _authorizeUpgrade(address /*newImplementation*/) internal view override {
@@ -157,10 +163,8 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
     /**
      * @dev see {ITokenController.recover}
      */
-    function recover(address token, address lostWallet, address newWallet, address investorOnchainID) external onlyGov {
+    function recover(address token, address lostWallet, address newWallet, address investorOnchainId) external onlyGov {
         require(isRecoverable(token), 'recover capability disabled');
-        IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainID);
+        IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId);
     }
-
-    uint256[50] private __gap;
 }

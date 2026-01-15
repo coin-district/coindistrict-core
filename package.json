@@ -1,6 +1,6 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "0.21.2",
+  "version": "0.22.0",
   "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -12,7 +12,7 @@
     "build:abis": "bash scripts/generate-abis.sh",
     "prepublishOnly": "pnpm build && pnpm build:abis",
     "test": "forge test",
-    "lint": "prettier . --check"
+    "lint": "forge lint"
   },
   "files": [
     "contracts",
@@ -24,6 +24,7 @@
     "out"
   ],
   "devDependencies": {
+    "@chainlink/contracts": "^1.5.0",
     "prettier": "3.6.2",
     "prettier-plugin-solidity": "2.1.0"
   }
