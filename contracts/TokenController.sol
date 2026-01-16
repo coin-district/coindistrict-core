@@ -10,7 +10,7 @@ import {IGovernance} from './governance/IGovernance.sol';
 /**
  * @title TokenController
  * @author CoinDistrict
- * @dev Version: 0.23.1
+ * @dev Version: 0.23.2
  * @notice Upgradeable controller that acts as ERC-3643 Token agent and provides granular capability gating
  */
 contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
@@ -29,6 +29,10 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
     mapping(address => uint256) public capabilitiesByToken;
 
     uint256[50] private _gap;
+
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(address governance_) external initializer {
         __UUPSUpgradeable_init();

@@ -17,7 +17,7 @@ import {ISalesManager} from './ISalesManager.sol';
 /**
  * @title SalesManager
  * @author CoinDistrict
- * @dev Version: 0.23.1
+ * @dev Version: 0.23.2
  * @notice Manages primary sales of ERC-3643 shares against ERC20 payment tokens
  * See {ISalesManager} for usage and more details.
  */
@@ -32,6 +32,10 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     IGovernance public governance;
 
     uint256[50] private _gap;
+
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(address governance_) external initializer {
         __ReentrancyGuard_init();

@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.23.1
+ * @dev Version: 0.23.2
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
@@ -38,6 +38,10 @@ contract Factory is IFactory, UUPSUpgradeable {
     IGovernance public governance;
 
     uint256[50] private __gap;
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @param _trexFactoryAddr Address of the TREXFactory this contract must own

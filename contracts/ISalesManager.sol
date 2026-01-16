@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title ISalesManager
  * @author CoinDistrict
- * @dev Version: 0.23.1
+ * @dev Version: 0.23.2
  * @notice Public ABI for primary sales of ERC-3643 shares against ERC20 payment tokens
  * @dev
  * - Amounts for shares are expressed in the share token's smallest units (10^decimals)
