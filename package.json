@@ -1,6 +1,6 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "0.24.1",
+  "version": "0.24.2",
   "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
