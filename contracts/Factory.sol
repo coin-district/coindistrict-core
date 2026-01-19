@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.24.0
+ * @dev Version: 0.24.1
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
@@ -39,6 +39,7 @@ contract Factory is IFactory, UUPSUpgradeable {
 
     uint256[50] private __gap;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
