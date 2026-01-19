@@ -83,12 +83,24 @@ contract SalesTest is Test, ProtocolFixture {
 
         // create sale
         uint256 priceUsdPerShare = 1e8; // $1
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 100, priceUsdPerShare, deadline);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            100,
+            priceUsdPerShare,
+            start,
+            deadline
+        );
 
         uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         vm.startPrank(buyer);
         stable.approve(address(p.salesManager), 10_000_000); // 10 USD
@@ -96,7 +108,7 @@ contract SalesTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         assertEq(token.balanceOf(buyer), 10);
-        (, , , uint256 remaining, , , , , ) = p.salesManager.sales(saleId);
+        (, , , uint256 remaining, , , , , , ) = p.salesManager.getSale(saleId);
         assertEq(remaining, 90);
     }
 
@@ -127,12 +139,24 @@ contract SalesTest is Test, ProtocolFixture {
 
         // create sale
         uint256 priceUsdPerShare = 1e8; // $1
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(fot)), multisig, 100, priceUsdPerShare, deadline);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(fot)),
+            multisig,
+            100,
+            priceUsdPerShare,
+            start,
+            deadline
+        );
 
         uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         uint256 buyerBefore = fot.balanceOf(buyer);
         uint256 feeCollectorBefore = fot.balanceOf(feeCollector);
@@ -149,6 +173,60 @@ contract SalesTest is Test, ProtocolFixture {
         assertEq(fot.balanceOf(feeCollector), feeCollectorBefore);
         assertEq(fot.balanceOf(multisig), treasuryBefore);
         assertEq(token.balanceOf(buyer), 0);
+    }
+
+    function test_buy_reverts_before_sale_start() public {
+        vm.startPrank(factoryShareDeployer);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'START', 'STR', DEFAULT_MAX_SUPPLY);
+        uint256 PAUSABLE_BIT = 1 << 1;
+        p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
+        vm.stopPrank();
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+
+        p.registerIdentity(vm, identityRegistryAgent, buyer);
+
+        MockToken stable = new MockToken('USD', 'USD', 6);
+        stable.mint(buyer, 1_000_000_000);
+        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(stable), true);
+        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
+        vm.stopPrank();
+
+        uint256 priceUsdPerShare = 1e8;
+        uint64 start = uint64(block.timestamp + 3600); // 1 hour in the future
+        uint64 deadline = uint64(block.timestamp + 7200); // 2 hours in the future
+
+        vm.prank(salesManagerSalesOperator);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            100,
+            priceUsdPerShare,
+            start,
+            deadline
+        );
+
+        uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Try to buy before start - should revert
+        vm.startPrank(buyer);
+        stable.approve(address(p.salesManager), 10_000_000);
+        vm.expectRevert(bytes('Sale_NotStarted'));
+        p.salesManager.buy(saleId, 10, buyer, address(stable), 10_000_000);
+        vm.stopPrank();
+
+        // Warp to start time
+        vm.warp(start + 1);
+
+        // Now should succeed
+        vm.prank(buyer);
+        p.salesManager.buy(saleId, 10, buyer, address(stable), 10_000_000);
+        assertEq(token.balanceOf(buyer), 10);
     }
 
     function test_createSale_rejects_bad_inputs_and_cap() public {
@@ -168,19 +246,84 @@ contract SalesTest is Test, ProtocolFixture {
 
         vm.startPrank(salesManagerSalesOperator);
         vm.expectRevert(bytes('Sale_InvalidAddress'));
-        p.salesManager.createSale(ZERO, _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100);
+        p.salesManager.createSale(
+            ZERO,
+            _single(address(stable)),
+            multisig,
+            10,
+            priceUsdPerShare,
+            nowTs + 100,
+            nowTs + 200
+        );
 
         vm.expectRevert(bytes('Sale_InvalidRecipient'));
-        p.salesManager.createSale(address(token), _single(address(stable)), ZERO, 10, priceUsdPerShare, nowTs + 100);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            ZERO,
+            10,
+            priceUsdPerShare,
+            nowTs + 100,
+            nowTs + 200
+        );
 
         vm.expectRevert(bytes('Sale_ZeroSupply'));
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 0, priceUsdPerShare, nowTs + 100);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            0,
+            priceUsdPerShare,
+            nowTs + 100,
+            nowTs + 200
+        );
 
         vm.expectRevert(bytes('Sale_ZeroPrice'));
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 10, 0, nowTs + 100);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 10, 0, nowTs + 100, nowTs + 200);
+
+        vm.expectRevert(bytes('Sale_InvalidStart'));
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            10,
+            priceUsdPerShare,
+            nowTs,
+            nowTs + 200
+        );
+
+        vm.expectRevert(bytes('Sale_InvalidStart'));
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            10,
+            priceUsdPerShare,
+            nowTs - 1,
+            nowTs + 200
+        );
 
         vm.expectRevert(bytes('Sale_InvalidDeadline'));
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs - 1);
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            10,
+            priceUsdPerShare,
+            nowTs + 100,
+            nowTs + 100
+        );
+
+        vm.expectRevert(bytes('Sale_InvalidDeadline'));
+        p.salesManager.createSale(
+            address(token),
+            _single(address(stable)),
+            multisig,
+            10,
+            priceUsdPerShare,
+            nowTs + 100,
+            nowTs + 50
+        );
 
         // exceeding cap
         vm.expectRevert(bytes('Sale_SupplyExceedsCap'));
@@ -190,6 +333,7 @@ contract SalesTest is Test, ProtocolFixture {
             multisig,
             2000,
             priceUsdPerShare,
+            nowTs + 100,
             nowTs + 1000
         );
         vm.stopPrank();
@@ -219,12 +363,16 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
         vm.stopPrank();
 
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
         vm.startPrank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
         vm.stopPrank();
         uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         vm.prank(buyer);
         stable.approve(address(p.salesManager), 10_000_000);
@@ -280,11 +428,15 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
         vm.stopPrank();
 
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
         uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         vm.startPrank(buyer);
         stable.approve(address(p.salesManager), 10_000_000);
@@ -315,9 +467,10 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
         vm.stopPrank();
 
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
         uint256 saleId = p.salesManager.saleCount() - 1;
 
         // new token not allowlisted
@@ -346,7 +499,7 @@ contract SalesTest is Test, ProtocolFixture {
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.updateSalePaymentTokensAllowed(saleId, _single(address(unallowed)));
-        (, address[] memory allowed, , , , , , , ) = p.salesManager.sales(saleId);
+        (, address[] memory allowed, , , , , , , , ) = p.salesManager.getSale(saleId);
         assertEq(allowed.length, 1);
         assertEq(allowed[0], address(unallowed));
     }
@@ -366,15 +519,19 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
         vm.stopPrank();
 
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
         uint256 saleId = p.salesManager.saleCount() - 1;
 
         address newRecipient = vm.addr(1234);
 
         vm.prank(salesManagerFundsAdmin);
         p.salesManager.updateSaleFundsRecipient(saleId, newRecipient);
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         uint256 before = stable.balanceOf(newRecipient);
 
@@ -401,10 +558,14 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setPaymentTokenOracle(address(stable), address(oracle));
         vm.stopPrank();
 
+        uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, deadline);
+        p.salesManager.createSale(address(token), _single(address(stable)), multisig, 50, 1e8, start, deadline);
         uint256 saleId = p.salesManager.saleCount() - 1;
+
+        // Warp to start time
+        vm.warp(start + 1);
 
         // pause sale
 
@@ -422,7 +583,7 @@ contract SalesTest is Test, ProtocolFixture {
         vm.prank(fiatOrderSigner);
         p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes('ref')));
         assertEq(token.balanceOf(recipient), 10);
-        (, , , uint256 remaining, , , , , ) = p.salesManager.sales(saleId);
+        (, , , uint256 remaining, , , , , , ) = p.salesManager.getSale(saleId);
         assertEq(remaining, 40);
     }
 

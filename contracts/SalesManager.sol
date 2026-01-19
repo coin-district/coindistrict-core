@@ -17,7 +17,7 @@ import {ISalesManager} from './ISalesManager.sol';
 /**
  * @title SalesManager
  * @author CoinDistrict
- * @dev Version: 0.23.2
+ * @dev Version: 0.24.0
  * @notice Manages primary sales of ERC-3643 shares against ERC20 payment tokens
  * See {ISalesManager} for usage and more details.
  */
@@ -93,6 +93,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         address _fundsRecipient,
         uint256 _saleSupply,
         uint256 _priceUsdPerShare,
+        uint64 _start,
         uint64 _deadline
     ) external onlyGov returns (uint256 saleId) {
         require(_share != address(0), 'Sale_InvalidAddress');
@@ -100,7 +101,8 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(_fundsRecipient != address(0), 'Sale_InvalidRecipient');
         require(_saleSupply > 0, 'Sale_ZeroSupply');
         require(_priceUsdPerShare > 0, 'Sale_ZeroPrice');
-        require(_deadline > block.timestamp, 'Sale_InvalidDeadline');
+        require(_start > block.timestamp, 'Sale_InvalidStart');
+        require(_deadline > _start, 'Sale_InvalidDeadline');
 
         // Validate all payment tokens are allowlisted and have oracles configured
         for (uint256 i = 0; i < _paymentTokensAllowed.length; i++) {
@@ -124,6 +126,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             fundsRecipient: _fundsRecipient,
             remainingSupply: _saleSupply,
             priceUsdPerShare: _priceUsdPerShare,
+            start: _start,
             deadline: _deadline,
             shareDecimals: shareDecimals,
             active: true,
@@ -137,6 +140,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             _fundsRecipient,
             _saleSupply,
             _priceUsdPerShare,
+            _start,
             _deadline,
             shareDecimals
         );
@@ -186,6 +190,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(!s.paused, 'Sale_Paused');
         require(s.share != address(0), 'Sale_DoesNotExist');
         require(_to != address(0), 'Sale_InvalidRecipient');
+        require(block.timestamp >= s.start, 'Sale_NotStarted');
         require(block.timestamp <= s.deadline, 'Sale_Ended');
         require(_amount > 0 && _amount <= s.remainingSupply, 'Sale_AmountInvalid');
 
@@ -356,6 +361,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(!s.paused, 'Sale_Paused');
         require(s.share != address(0), 'Sale_DoesNotExist');
         require(_to != address(0), 'Sale_InvalidRecipient');
+        require(block.timestamp >= s.start, 'Sale_NotStarted');
         require(block.timestamp <= s.deadline, 'Sale_Ended');
         require(_amount > 0 && _amount <= s.remainingSupply, 'Sale_AmountInvalid');
         require(!fiatOrderReferenceFulfilled[_reference], 'Sale_FiatOrderReferenceAlreadyFulfilled');
@@ -516,9 +522,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev see {ISalesManager.sales}
+     * @dev see {ISalesManager.getSale}
      */
-    function sales(
+    function getSale(
         uint256 saleId
     )
         external
@@ -529,6 +535,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             address fundsRecipient,
             uint256 remainingSupply,
             uint256 priceUsdPerShare,
+            uint64 start,
             uint64 deadline,
             uint8 shareDecimals,
             bool active,
@@ -542,6 +549,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             s.fundsRecipient,
             s.remainingSupply,
             s.priceUsdPerShare,
+            s.start,
             s.deadline,
             s.shareDecimals,
             s.active,

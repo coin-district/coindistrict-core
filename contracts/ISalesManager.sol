@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title ISalesManager
  * @author CoinDistrict
- * @dev Version: 0.23.2
+ * @dev Version: 0.24.0
  * @notice Public ABI for primary sales of ERC-3643 shares against ERC20 payment tokens
  * @dev
  * - Amounts for shares are expressed in the share token's smallest units (10^decimals)
@@ -23,7 +23,8 @@ interface ISalesManager {
         address fundsRecipient; // address receiving proceeds
         uint256 remainingSupply; // remaining amount in share smallest units
         uint256 priceUsdPerShare; // USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
-        uint64 deadline; // unix timestamp (seconds)
+        uint64 start; // unix timestamp (seconds) when sale becomes active
+        uint64 deadline; // unix timestamp (seconds) when sale ends
         uint8 shareDecimals; // cached decimals from the share token
         bool active; // whether the sale is active
         bool paused; // pausable flag (does not cancel the sale)
@@ -52,6 +53,7 @@ interface ISalesManager {
     /// @param fundsRecipient The treasury address receiving proceeds
     /// @param saleSupply Total initial sale supply (in share smallest units)
     /// @param priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+    /// @param start Unix timestamp when the sale becomes active
     /// @param deadline Unix timestamp when the sale ends
     /// @param shareDecimals Cached decimals of the share token
     event SaleCreated(
@@ -61,6 +63,7 @@ interface ISalesManager {
         address fundsRecipient,
         uint256 saleSupply,
         uint256 priceUsdPerShare,
+        uint64 start,
         uint64 deadline,
         uint8 shareDecimals
     );
@@ -155,11 +158,12 @@ interface ISalesManager {
     /// @return fundsRecipient The treasury address for proceeds
     /// @return remainingSupply Remaining sale supply (smallest units)
     /// @return priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+    /// @return start Unix timestamp for sale start
     /// @return deadline Unix timestamp for sale end
     /// @return shareDecimals Cached decimals of the share
     /// @return active Whether the sale is active
     /// @return paused Whether the sale is paused
-    function sales(
+    function getSale(
         uint256 saleId
     )
         external
@@ -170,6 +174,7 @@ interface ISalesManager {
             address fundsRecipient,
             uint256 remainingSupply,
             uint256 priceUsdPerShare,
+            uint64 start,
             uint64 deadline,
             uint8 shareDecimals,
             bool active,
@@ -197,14 +202,15 @@ interface ISalesManager {
     function isPaymentTokenAllowed(address token) external view returns (bool);
 
     /// @notice Create a new sale for a given ERC-3643 token
-    /// @dev Reverts if `_deadline <= block.timestamp`, `_saleSupply == 0`, `_priceUsdPerShare == 0`, or `_paymentTokensAllowed` is empty
+    /// @dev Reverts if `_start <= block.timestamp`, `_deadline <= _start`, `_saleSupply == 0`, `_priceUsdPerShare == 0`, or `_paymentTokensAllowed` is empty
     /// @dev All payment tokens in `_paymentTokensAllowed` must be globally allowlisted and have oracles configured
     /// @param _share ERC-3643 share address (manager must be agent on this token)
     /// @param _paymentTokensAllowed ERC20 payment tokens allowed for this sale (must be non-empty and all allowlisted with oracles)
     /// @param _fundsRecipient Address receiving proceeds
     /// @param _saleSupply Total sale supply (smallest units)
     /// @param _priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
-    /// @param _deadline Unix timestamp when sale ends
+    /// @param _start Unix timestamp when sale becomes active (must be in the future)
+    /// @param _deadline Unix timestamp when sale ends (must be after _start)
     /// @return saleId The created sale identifier
     function createSale(
         address _share,
@@ -212,6 +218,7 @@ interface ISalesManager {
         address _fundsRecipient,
         uint256 _saleSupply,
         uint256 _priceUsdPerShare,
+        uint64 _start,
         uint64 _deadline
     ) external returns (uint256 saleId);
 
