@@ -1,6 +1,6 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "0.24.1",
+  "version": "0.25.0",
   "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -8,9 +8,9 @@
   "description": "Foundry-based ERC-3643 smart contracts for Coin District",
   "license": "GPL-3.0",
   "scripts": {
-    "build": "forge build",
+    "build": "forge build && bash scripts/generate-abis.sh",
     "build:abis": "bash scripts/generate-abis.sh",
-    "prepublishOnly": "pnpm build && pnpm build:abis",
+    "prepublishOnly": "pnpm build",
     "test": "forge test",
     "lint": "forge lint"
   },
