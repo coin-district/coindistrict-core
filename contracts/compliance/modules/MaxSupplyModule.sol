@@ -6,7 +6,7 @@ import {AbstractModule} from '@erc3643org/erc-3643/contracts/compliance/modular/
 /**
  * @title MaxSupplyModule
  * @author CoinDistrict
- * @dev Version: 0.24.3
+ * @dev Version: 0.24.5
  * @notice MaxSupplyModule for enforcing max supply on ERC-3643 shares
  * See {IMaxSupplyModule} for usage and more details.
  */

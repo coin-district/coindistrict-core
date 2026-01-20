@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title IGovernance
  * @author CoinDistrict
- * @dev Version: 0.24.3
+ * @dev Version: 0.24.5
  * @notice Interface for governance contract that manages access control
  * @dev This interface allows 0.8.17 contracts to interact with 0.8.22 AccessManager-based governance
  * @dev Role IDs are defined off-chain in config/role-and-delays.json

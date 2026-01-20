@@ -6,7 +6,7 @@
   },
   {
     "type": "function",
-    "name": "MINOR_VERSION",
+    "name": "VERSION",
     "inputs": [],
     "outputs": [
       {
@@ -19,7 +19,7 @@
   },
   {
     "type": "function",
-    "name": "VERSION",
+    "name": "counterMajorVersion",
     "inputs": [],
     "outputs": [
       {

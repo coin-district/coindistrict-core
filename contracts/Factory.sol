@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.24.3
+ * @dev Version: 0.24.5
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
@@ -37,8 +37,8 @@ contract Factory is IFactory, UUPSUpgradeable {
     // Governance interface
     IGovernance public governance;
 
-    uint256 public constant VERSION = 243;
-    uint256 public constant MINOR_VERSION = 3;
+    uint256 public constant VERSION = 245;
+    uint256 public counterMajorVersion;
 
     uint256[48] private __gap;
 
@@ -72,6 +72,7 @@ contract Factory is IFactory, UUPSUpgradeable {
         salesManagerAddress = _salesManagerAddr;
         tokenControllerAddress = _tokenControllerAddr;
         maxSupplyModule = _maxSupplyModuleAddr;
+        counterMajorVersion = 5;
     }
 
     modifier onlyGov() {
