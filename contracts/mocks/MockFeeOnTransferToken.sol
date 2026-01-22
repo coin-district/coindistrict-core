@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @dev Simple fee-on-transfer token for testing: recipient receives (amount - fee),
 /// and the fee is sent to `feeCollector`.
@@ -10,15 +10,11 @@ contract MockFeeOnTransferToken is ERC20 {
     uint16 public immutable FEE_BPS; // e.g. 100 = 1%
     address public immutable FEE_COLLECTOR;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_,
-        uint16 feeBps_,
-        address feeCollector_
-    ) ERC20(name_, symbol_) {
-        require(feeBps_ <= 10_000, 'FeeBpsTooHigh');
-        require(feeCollector_ != address(0), 'FeeCollectorZero');
+    constructor(string memory name_, string memory symbol_, uint8 decimals_, uint16 feeBps_, address feeCollector_)
+        ERC20(name_, symbol_)
+    {
+        require(feeBps_ <= 10_000, "FeeBpsTooHigh");
+        require(feeCollector_ != address(0), "FeeCollectorZero");
         _DECIMALS = decimals_;
         FEE_BPS = feeBps_;
         FEE_COLLECTOR = feeCollector_;

@@ -1,18 +1,18 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {ReentrancyGuardUpgradeable} from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
-import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
-import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import {IERC20Metadata} from '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
-import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import {Math} from '@openzeppelin/contracts/utils/math/Math.sol';
-import {IToken} from '@erc3643org/erc-3643/contracts/token/IToken.sol';
-import {IModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol';
-import {IMaxSupplyModule} from './compliance/modules/IMaxSupplyModule.sol';
-import {AggregatorV3Interface} from '@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol';
-import {IGovernance} from './governance/IGovernance.sol';
-import {ISalesManager} from './ISalesManager.sol';
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IToken} from "@erc3643org/erc-3643/contracts/token/IToken.sol";
+import {IModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol";
+import {IMaxSupplyModule} from "./compliance/modules/IMaxSupplyModule.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {IGovernance} from "./governance/IGovernance.sol";
+import {ISalesManager} from "./ISalesManager.sol";
 
 /**
  * @title SalesManager
@@ -40,7 +40,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
 
     function initialize(address governance_) external initializer {
         __ReentrancyGuard_init();
-        require(governance_ != address(0), 'SalesManager_InvalidGovernance');
+        require(governance_ != address(0), "SalesManager_InvalidGovernance");
         governance = IGovernance(governance_);
         maxOracleDelaySeconds = DEFAULT_MAX_ORACLE_DELAY_SECONDS;
     }
@@ -51,12 +51,18 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     function _onlyGov() internal view {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'SalesManager_NotAuthorized');
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "SalesManager_NotAuthorized");
     }
 
-    function _authorizeUpgrade(address /*newImplementation*/) internal view override {
-        bytes4 selector = bytes4(keccak256('upgradeTo(address)'));
-        require(governance.hasRole(msg.sender, address(this), selector), 'SalesManager_NotAuthorized');
+    function _authorizeUpgrade(
+        address /*newImplementation*/
+    )
+        internal
+        view
+        override
+    {
+        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
+        require(governance.hasRole(msg.sender, address(this), selector), "SalesManager_NotAuthorized");
     }
 
     modifier whenNotPaused() {
@@ -65,7 +71,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     function _whenNotPaused() internal view {
-        require(!emergencyPaused, 'SalesManager_EmergencyPaused');
+        require(!emergencyPaused, "SalesManager_EmergencyPaused");
     }
 
     // payment token allowlist (always enforced)
@@ -97,19 +103,19 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         uint64 _start,
         uint64 _deadline
     ) external onlyGov returns (uint256 saleId) {
-        require(_share != address(0), 'Sale_InvalidAddress');
-        require(_paymentTokensAllowed.length > 0, 'Sale_NoPaymentTokens');
-        require(_fundsRecipient != address(0), 'Sale_InvalidRecipient');
-        require(_saleSupply > 0, 'Sale_ZeroSupply');
-        require(_priceUsdPerShare > 0, 'Sale_ZeroPrice');
-        require(_start > block.timestamp, 'Sale_InvalidStart');
-        require(_deadline > _start, 'Sale_InvalidDeadline');
+        require(_share != address(0), "Sale_InvalidAddress");
+        require(_paymentTokensAllowed.length > 0, "Sale_NoPaymentTokens");
+        require(_fundsRecipient != address(0), "Sale_InvalidRecipient");
+        require(_saleSupply > 0, "Sale_ZeroSupply");
+        require(_priceUsdPerShare > 0, "Sale_ZeroPrice");
+        require(_start > block.timestamp, "Sale_InvalidStart");
+        require(_deadline > _start, "Sale_InvalidDeadline");
 
         // Validate all payment tokens are allowlisted and have oracles configured
         for (uint256 i = 0; i < _paymentTokensAllowed.length; i++) {
-            require(_paymentTokensAllowed[i] != address(0), 'Sale_InvalidAddress');
-            require(allowedPaymentToken[_paymentTokensAllowed[i]], 'Sale_PaymentTokenNotAllowed');
-            require(paymentTokenToUsdAggregator[_paymentTokensAllowed[i]] != address(0), 'Sale_OracleNotConfigured');
+            require(_paymentTokensAllowed[i] != address(0), "Sale_InvalidAddress");
+            require(allowedPaymentToken[_paymentTokensAllowed[i]], "Sale_PaymentTokenNotAllowed");
+            require(paymentTokenToUsdAggregator[_paymentTokensAllowed[i]] != address(0), "Sale_OracleNotConfigured");
         }
 
         uint8 shareDecimals = IToken(_share).decimals();
@@ -117,7 +123,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         // If a MaxSupplyModule is bound with a finite cap, ensure saleSupply does not exceed remaining cap
         (bool capFound, uint256 remainingCap) = _getRemainingCap(_share);
         if (capFound) {
-            require(_saleSupply <= remainingCap, 'Sale_SupplyExceedsCap');
+            require(_saleSupply <= remainingCap, "Sale_SupplyExceedsCap");
         }
 
         saleId = saleCount;
@@ -179,21 +185,19 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     /**
      * @dev see {ISalesManager.buy}
      */
-    function buy(
-        uint256 _saleId,
-        uint256 _amount,
-        address _to,
-        address _paymentToken,
-        uint256 _maxPayment
-    ) external nonReentrant whenNotPaused {
+    function buy(uint256 _saleId, uint256 _amount, address _to, address _paymentToken, uint256 _maxPayment)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         Sale storage s = _sales[_saleId];
-        require(s.active, 'Sale_NotActive');
-        require(!s.paused, 'Sale_Paused');
-        require(s.share != address(0), 'Sale_DoesNotExist');
-        require(_to != address(0), 'Sale_InvalidRecipient');
-        require(block.timestamp >= s.start, 'Sale_NotStarted');
-        require(block.timestamp <= s.deadline, 'Sale_Ended');
-        require(_amount > 0 && _amount <= s.remainingSupply, 'Sale_AmountInvalid');
+        require(s.active, "Sale_NotActive");
+        require(!s.paused, "Sale_Paused");
+        require(s.share != address(0), "Sale_DoesNotExist");
+        require(_to != address(0), "Sale_InvalidRecipient");
+        require(block.timestamp >= s.start, "Sale_NotStarted");
+        require(block.timestamp <= s.deadline, "Sale_Ended");
+        require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
 
         // Check if payment token is in the sale's allowed list
         bool isAllowed = false;
@@ -203,7 +207,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
                 break;
             }
         }
-        require(isAllowed, 'Sale_PaymentTokenNotAllowed');
+        require(isAllowed, "Sale_PaymentTokenNotAllowed");
 
         // Get oracle aggregator (already validated at sale creation)
         address aggregator = paymentTokenToUsdAggregator[_paymentToken];
@@ -222,7 +226,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         uint256 tokenAmount = Math.mulDiv(usdCost, 10 ** uint256(tokenDecimals), tokenUsdPrice1e8, Math.Rounding.Up);
 
         // Slippage protection
-        require(tokenAmount <= _maxPayment, 'Sale_MaxPaymentExceeded');
+        require(tokenAmount <= _maxPayment, "Sale_MaxPaymentExceeded");
 
         // Pull payment token from buyer to this contract first. If anything reverts later, the whole tx reverts.
         // Check balance before transfer to detect fee-on-transfer tokens
@@ -231,7 +235,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
 
         // Verify received amount matches expected (protects against fee-on-transfer tokens)
-        require(balanceAfter - balanceBefore == tokenAmount, 'Sale_TransferAmountMismatch');
+        require(balanceAfter - balanceBefore == tokenAmount, "Sale_TransferAmountMismatch");
 
         // Mint shares to recipient. Requires this contract to be an Agent on the share.
         IToken(s.share).mint(_to, _amount);
@@ -253,7 +257,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function cancelSale(uint256 _saleId) external onlyGov {
         Sale storage s = _sales[_saleId];
-        require(s.active && s.share != address(0), 'Sale_DoesNotExist');
+        require(s.active && s.share != address(0), "Sale_DoesNotExist");
         s.active = false;
         // Also set deadline to past for completeness
         s.deadline = uint64(block.timestamp);
@@ -265,9 +269,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function pauseSale(uint256 _saleId) external onlyGov {
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
-        require(s.active, 'Sale_NotActive');
-        require(!s.paused, 'Sale_AlreadyPaused');
+        require(s.share != address(0), "Sale_DoesNotExist");
+        require(s.active, "Sale_NotActive");
+        require(!s.paused, "Sale_AlreadyPaused");
         s.paused = true;
         emit SalePaused(_saleId);
     }
@@ -277,9 +281,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function unpauseSale(uint256 _saleId) external onlyGov {
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
-        require(s.active, 'Sale_NotActive');
-        require(s.paused, 'Sale_NotPaused');
+        require(s.share != address(0), "Sale_DoesNotExist");
+        require(s.active, "Sale_NotActive");
+        require(s.paused, "Sale_NotPaused");
         s.paused = false;
         emit SaleUnpaused(_saleId);
     }
@@ -288,9 +292,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.updateSaleFundsRecipient}
      */
     function updateSaleFundsRecipient(uint256 _saleId, address _newRecipient) external onlyGov {
-        require(_newRecipient != address(0), 'Sale_InvalidRecipient');
+        require(_newRecipient != address(0), "Sale_InvalidRecipient");
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
         address old = s.fundsRecipient;
         s.fundsRecipient = _newRecipient;
         emit SaleFundsRecipientUpdated(_saleId, old, _newRecipient);
@@ -299,20 +303,20 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     /**
      * @dev see {ISalesManager.updateSalePaymentTokensAllowed}
      */
-    function updateSalePaymentTokensAllowed(
-        uint256 _saleId,
-        address[] calldata _newPaymentTokensAllowed
-    ) external onlyGov {
-        require(_newPaymentTokensAllowed.length > 0, 'Sale_NoPaymentTokens');
+    function updateSalePaymentTokensAllowed(uint256 _saleId, address[] calldata _newPaymentTokensAllowed)
+        external
+        onlyGov
+    {
+        require(_newPaymentTokensAllowed.length > 0, "Sale_NoPaymentTokens");
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
 
         // Validate all payment tokens are allowlisted and have oracles configured
         for (uint256 i = 0; i < _newPaymentTokensAllowed.length; i++) {
             address paymentToken = _newPaymentTokensAllowed[i];
-            require(paymentToken != address(0), 'Sale_InvalidAddress');
-            require(allowedPaymentToken[paymentToken], 'Sale_PaymentTokenNotAllowed');
-            require(paymentTokenToUsdAggregator[paymentToken] != address(0), 'Sale_OracleNotConfigured');
+            require(paymentToken != address(0), "Sale_InvalidAddress");
+            require(allowedPaymentToken[paymentToken], "Sale_PaymentTokenNotAllowed");
+            require(paymentTokenToUsdAggregator[paymentToken] != address(0), "Sale_OracleNotConfigured");
         }
 
         address[] memory oldPaymentTokensAllowed = s.paymentTokensAllowed;
@@ -324,9 +328,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.updateSalePriceUsdPerShare}
      */
     function updateSalePriceUsdPerShare(uint256 _saleId, uint256 _newPriceUsdPerShare) external onlyGov {
-        require(_newPriceUsdPerShare > 0, 'Sale_ZeroPrice');
+        require(_newPriceUsdPerShare > 0, "Sale_ZeroPrice");
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
         uint256 oldPrice = s.priceUsdPerShare;
         s.priceUsdPerShare = _newPriceUsdPerShare;
         emit SalePriceUsdPerShareUpdated(_saleId, oldPrice, _newPriceUsdPerShare);
@@ -336,10 +340,10 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.updateSaleDeadline}
      */
     function updateSaleDeadline(uint256 _saleId, uint256 _newDeadline) external onlyGov {
-        require(_newDeadline > block.timestamp, 'Sale_InvalidDeadline');
-        require(_newDeadline <= type(uint64).max, 'Sale_InvalidDeadline');
+        require(_newDeadline > block.timestamp, "Sale_InvalidDeadline");
+        require(_newDeadline <= type(uint64).max, "Sale_InvalidDeadline");
         Sale storage s = _sales[_saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
         uint64 oldDeadline = s.deadline;
 
         // Safe: _newDeadline is checked > block.timestamp and <= type(uint64).max.
@@ -351,21 +355,21 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     /**
      * @dev see {ISalesManager.fulfillFiatOrder}
      */
-    function fulfillFiatOrder(
-        uint256 _saleId,
-        uint256 _amount,
-        address _to,
-        bytes32 _reference
-    ) external onlyGov nonReentrant whenNotPaused {
+    function fulfillFiatOrder(uint256 _saleId, uint256 _amount, address _to, bytes32 _reference)
+        external
+        onlyGov
+        nonReentrant
+        whenNotPaused
+    {
         Sale storage s = _sales[_saleId];
-        require(s.active, 'Sale_NotActive');
-        require(!s.paused, 'Sale_Paused');
-        require(s.share != address(0), 'Sale_DoesNotExist');
-        require(_to != address(0), 'Sale_InvalidRecipient');
-        require(block.timestamp >= s.start, 'Sale_NotStarted');
-        require(block.timestamp <= s.deadline, 'Sale_Ended');
-        require(_amount > 0 && _amount <= s.remainingSupply, 'Sale_AmountInvalid');
-        require(!fiatOrderReferenceFulfilled[_reference], 'Sale_FiatOrderReferenceAlreadyFulfilled');
+        require(s.active, "Sale_NotActive");
+        require(!s.paused, "Sale_Paused");
+        require(s.share != address(0), "Sale_DoesNotExist");
+        require(_to != address(0), "Sale_InvalidRecipient");
+        require(block.timestamp >= s.start, "Sale_NotStarted");
+        require(block.timestamp <= s.deadline, "Sale_Ended");
+        require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
+        require(!fiatOrderReferenceFulfilled[_reference], "Sale_FiatOrderReferenceAlreadyFulfilled");
 
         IToken(s.share).mint(_to, _amount);
         s.remainingSupply -= _amount;
@@ -381,8 +385,8 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.rescueTokens}
      */
     function rescueTokens(address _erc20, address _to, uint256 _amount) external onlyGov {
-        require(_to != address(0), 'Rescue_InvalidRecipient');
-        require(!allowedPaymentToken[_erc20], 'Rescue_UseWithdrawFundsForPaymentTokens');
+        require(_to != address(0), "Rescue_InvalidRecipient");
+        require(!allowedPaymentToken[_erc20], "Rescue_UseWithdrawFundsForPaymentTokens");
 
         IERC20(_erc20).safeTransfer(_to, _amount);
         emit TokensRescued(_erc20, _to, _amount);
@@ -392,12 +396,12 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.withdrawFunds}
      */
     function withdrawFunds(address[] calldata tokens, address to, uint256[] calldata amounts) external onlyGov {
-        require(to != address(0), 'Rescue_InvalidRecipient');
-        require(tokens.length == amounts.length, 'Sale_LengthMismatch');
+        require(to != address(0), "Rescue_InvalidRecipient");
+        require(tokens.length == amounts.length, "Sale_LengthMismatch");
         for (uint256 i = 0; i < tokens.length; i++) {
             address token = tokens[i];
             uint256 amount = amounts[i];
-            require(allowedPaymentToken[token], 'Sale_PaymentTokenNotAllowed');
+            require(allowedPaymentToken[token], "Sale_PaymentTokenNotAllowed");
             IERC20(token).safeTransfer(to, amount);
             emit FundsWithdrawn(token, to, amount);
         }
@@ -423,7 +427,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.setMaxOracleDelaySeconds}
      */
     function setMaxOracleDelaySeconds(uint256 seconds_) external onlyGov {
-        require(seconds_ >= 5 minutes && seconds_ <= 24 hours, 'Sale_InvalidOracleDelay');
+        require(seconds_ >= 5 minutes && seconds_ <= 24 hours, "Sale_InvalidOracleDelay");
         uint256 oldDelay = maxOracleDelaySeconds;
         maxOracleDelaySeconds = seconds_;
         emit MaxOracleDelayUpdated(oldDelay, seconds_);
@@ -433,7 +437,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.setEmergencyPause}
      */
     function setEmergencyPause() external onlyGov {
-        require(!emergencyPaused, 'SalesManager_AlreadyPaused');
+        require(!emergencyPaused, "SalesManager_AlreadyPaused");
         emergencyPaused = true;
         emit EmergencyPauseSet(true);
     }
@@ -442,7 +446,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.unsetEmergencyPause}
      */
     function unsetEmergencyPause() external onlyGov {
-        require(emergencyPaused, 'SalesManager_NotPaused');
+        require(emergencyPaused, "SalesManager_NotPaused");
         emergencyPaused = false;
         emit EmergencyPauseSet(false);
     }
@@ -454,11 +458,11 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @param _shareDecimals Decimals of the share token
      * @return USD cost in 1e8 units
      */
-    function _calculateUsdCost(
-        uint256 _amount,
-        uint256 _priceUsdPerShare,
-        uint8 _shareDecimals
-    ) internal pure returns (uint256) {
+    function _calculateUsdCost(uint256 _amount, uint256 _priceUsdPerShare, uint8 _shareDecimals)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 scale = 10 ** uint256(_shareDecimals);
         // Use mulDiv to avoid overflow and maintain precision
         return Math.mulDiv(_amount, _priceUsdPerShare, scale, Math.Rounding.Down);
@@ -471,13 +475,13 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function _getTokenUsdPrice1e8(address aggregator) internal view returns (uint256 price) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
-        (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
 
         // Validate price data
-        require(answer > 0, 'Sale_InvalidPrice');
-        require(updatedAt > 0, 'Sale_PriceNotUpdated');
-        require(answeredInRound >= roundId, 'Sale_StaleRound');
-        require(block.timestamp - updatedAt <= maxOracleDelaySeconds, 'Sale_StalePrice');
+        require(answer > 0, "Sale_InvalidPrice");
+        require(updatedAt > 0, "Sale_PriceNotUpdated");
+        require(answeredInRound >= roundId, "Sale_StaleRound");
+        require(block.timestamp - updatedAt <= maxOracleDelaySeconds, "Sale_StalePrice");
 
         uint8 aggregatorDecimals = priceFeed.decimals();
 
@@ -509,7 +513,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function getSaleTotalSupply(uint256 saleId) external view returns (uint256) {
         Sale storage s = _sales[saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
         return s.remainingSupply + saleIdToSold[saleId];
     }
 
@@ -518,16 +522,14 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      */
     function getSaleRemainingSupply(uint256 saleId) external view returns (uint256) {
         Sale storage s = _sales[saleId];
-        require(s.share != address(0), 'Sale_DoesNotExist');
+        require(s.share != address(0), "Sale_DoesNotExist");
         return s.remainingSupply;
     }
 
     /**
      * @dev see {ISalesManager.getSale}
      */
-    function getSale(
-        uint256 saleId
-    )
+    function getSale(uint256 saleId)
         external
         view
         returns (

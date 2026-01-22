@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Test} from 'forge-std/Test.sol';
-import {ProtocolFixture, Protocol, Accounts, RoleIds} from './fixtures/ProtocolFixture.sol';
-import {ShareTestUtils} from './utils/ShareTestUtils.sol';
-import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
-import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
-import {TokenController} from 'contracts/TokenController.sol';
+import {Test} from "forge-std/Test.sol";
+import {ProtocolFixture, Protocol, Accounts, RoleIds} from "./fixtures/ProtocolFixture.sol";
+import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
+import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
+import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
+import {TokenController} from "contracts/TokenController.sol";
 
 contract TokenControllerTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
@@ -57,7 +57,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_capability_helpers() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'CAPS', 'CAP', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "CAPS", "CAP", 1000);
         uint256 caps = tc.MINTABLE_BIT() | tc.BURNABLE_BIT();
         p.tokenController.setTokenCapsInitial(address(token), caps);
         vm.stopPrank();
@@ -72,7 +72,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_requires_role_and_capability() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'DUAL', 'DUAL', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "DUAL", "DUAL", 1000);
         uint256 caps = tc.PAUSABLE_BIT() | tc.MINTABLE_BIT();
         p.tokenController.setTokenCapsInitial(address(token), caps);
         vm.stopPrank();
@@ -100,13 +100,13 @@ contract TokenControllerTest is Test, ProtocolFixture {
         p.accessManager.revokeRole(minterRole, userA);
 
         vm.prank(userA);
-        vm.expectRevert(bytes('TokenController_NotAuthorized'));
+        vm.expectRevert(bytes("TokenController_NotAuthorized"));
         p.tokenController.mint(address(token), userA, 1);
     }
 
     function test_pause_unpause() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'PAU', 'PAU', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "PAU", "PAU", 1000);
         p.tokenController.setTokenCapsInitial(address(token), tc.PAUSABLE_BIT());
         vm.stopPrank();
 
@@ -123,7 +123,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_mint_burn() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'MB', 'MB', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "MB", "MB", 1000);
         p.tokenController.setTokenCapsInitial(address(token), tc.MINTABLE_BIT() | tc.BURNABLE_BIT());
         vm.stopPrank();
 
@@ -145,11 +145,9 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_freeze_unfreeze() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FR', 'FR', 1000);
-        p.tokenController.setTokenCapsInitial(
-            address(token),
-            tc.PAUSABLE_BIT() | tc.FREEZABLE_BIT() | tc.MINTABLE_BIT()
-        );
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "FR", "FR", 1000);
+        p.tokenController
+            .setTokenCapsInitial(address(token), tc.PAUSABLE_BIT() | tc.FREEZABLE_BIT() | tc.MINTABLE_BIT());
         vm.stopPrank();
 
         vm.startPrank(multisig);
@@ -170,11 +168,11 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.prank(userA);
         try token.transfer(userB, 10) returns (bool ok) {
             assertFalse(ok);
-            fail('Expected transfer to revert');
+            fail("Expected transfer to revert");
         } catch Error(string memory reason) {
-            assertEq(reason, 'wallet is frozen');
+            assertEq(reason, "wallet is frozen");
         } catch {
-            fail('Unexpected revert');
+            fail("Unexpected revert");
         }
 
         vm.startPrank(tokenAgent);
@@ -184,17 +182,15 @@ contract TokenControllerTest is Test, ProtocolFixture {
         p.registerIdentity(vm, identityRegistryAgent, userB);
 
         vm.prank(userA);
-        require(token.transfer(userB, 10), 'Transfer failed');
+        require(token.transfer(userB, 10), "Transfer failed");
         assertEq(token.balanceOf(userB), 10);
     }
 
     function test_forceTransfer_paused_token() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FT', 'FT', 1000);
-        p.tokenController.setTokenCapsInitial(
-            address(token),
-            tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT()
-        );
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "FT", "FT", 1000);
+        p.tokenController
+            .setTokenCapsInitial(address(token), tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT());
         vm.stopPrank();
         vm.startPrank(multisig);
         p.accessManager.grantRole(pauserRole, tokenAgent, 0);
@@ -217,11 +213,9 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_recover_moves_balance() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'RCV', 'RCV', 1000);
-        p.tokenController.setTokenCapsInitial(
-            address(token),
-            tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.RECOVERABLE_BIT()
-        );
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "RCV", "RCV", 1000);
+        p.tokenController
+            .setTokenCapsInitial(address(token), tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.RECOVERABLE_BIT());
         vm.stopPrank();
 
         vm.prank(tokenAgent);
@@ -248,7 +242,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_setTokenCapsInitial_only_once_and_sets_initialized_bit() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'CAPINIT', 'CINI', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "CAPINIT", "CINI", 1000);
         p.tokenController.setTokenCapsInitial(address(token), 0);
         vm.stopPrank();
 
@@ -260,7 +254,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         assertFalse(p.tokenController.isMintable(address(token)));
 
         vm.startPrank(factoryShareDeployer);
-        vm.expectRevert(bytes('TokenController_CapsAlreadySet'));
+        vm.expectRevert(bytes("TokenController_CapsAlreadySet"));
         p.tokenController.setTokenCapsInitial(address(token), mintableBit);
         vm.stopPrank();
 
@@ -272,12 +266,12 @@ contract TokenControllerTest is Test, ProtocolFixture {
 
     function test_setTokenCaps_requires_initialized() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'CAPUP', 'CAPUP', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "CAPUP", "CAPUP", 1000);
 
         vm.startPrank(multisig);
         uint256 initializedBit = tc.INITIALIZED_BIT();
         uint256 mintableBit = tc.MINTABLE_BIT();
-        vm.expectRevert(bytes('TokenController_CapsNotInitialized'));
+        vm.expectRevert(bytes("TokenController_CapsNotInitialized"));
         p.tokenController.setTokenCaps(address(token), mintableBit);
         vm.stopPrank();
 

@@ -1,11 +1,11 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Initializable} from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
-import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
-import {IToken} from '@erc3643org/erc-3643/contracts/token/IToken.sol';
-import {ITokenController} from './ITokenController.sol';
-import {IGovernance} from './governance/IGovernance.sol';
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {IToken} from "@erc3643org/erc-3643/contracts/token/IToken.sol";
+import {ITokenController} from "./ITokenController.sol";
+import {IGovernance} from "./governance/IGovernance.sol";
 
 /**
  * @title TokenController
@@ -37,7 +37,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
 
     function initialize(address governance_) external initializer {
         __UUPSUpgradeable_init();
-        require(governance_ != address(0), 'TokenController_InvalidGovernance');
+        require(governance_ != address(0), "TokenController_InvalidGovernance");
         governance = IGovernance(governance_);
     }
 
@@ -47,19 +47,25 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
     }
 
     function _onlyGov() internal view {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'TokenController_NotAuthorized');
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "TokenController_NotAuthorized");
     }
 
-    function _authorizeUpgrade(address /*newImplementation*/) internal view override {
-        bytes4 selector = bytes4(keccak256('upgradeTo(address)'));
-        require(governance.hasRole(msg.sender, address(this), selector), 'TokenController_NotAuthorized');
+    function _authorizeUpgrade(
+        address /*newImplementation*/
+    )
+        internal
+        view
+        override
+    {
+        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
+        require(governance.hasRole(msg.sender, address(this), selector), "TokenController_NotAuthorized");
     }
 
     /**
      * @dev see {ITokenController.setTokenCapsInitial}
      */
     function setTokenCapsInitial(address token, uint256 caps) external onlyGov {
-        require((capabilitiesByToken[token] & INITIALIZED_BIT) == 0, 'TokenController_CapsAlreadySet');
+        require((capabilitiesByToken[token] & INITIALIZED_BIT) == 0, "TokenController_CapsAlreadySet");
         // Always set INITIALIZED_BIT, even if caps is 0
         capabilitiesByToken[token] = caps | INITIALIZED_BIT;
         emit TokenCapabilitiesSet(token, capabilitiesByToken[token]);
@@ -69,7 +75,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.setTokenCaps}
      */
     function setTokenCaps(address token, uint256 caps) external onlyGov {
-        require((capabilitiesByToken[token] & INITIALIZED_BIT) != 0, 'TokenController_CapsNotInitialized');
+        require((capabilitiesByToken[token] & INITIALIZED_BIT) != 0, "TokenController_CapsNotInitialized");
         // Preserve INITIALIZED_BIT when updating
         capabilitiesByToken[token] = (caps & ~INITIALIZED_BIT) | INITIALIZED_BIT;
         emit TokenCapabilitiesSet(token, capabilitiesByToken[token]);
@@ -121,7 +127,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.pause}
      */
     function pause(address token) external onlyGov {
-        require(isPausable(token), 'pause capability disabled');
+        require(isPausable(token), "pause capability disabled");
         IToken(token).pause();
     }
 
@@ -129,7 +135,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.unpause}
      */
     function unpause(address token) external onlyGov {
-        require(isPausable(token), 'pause capability disabled');
+        require(isPausable(token), "pause capability disabled");
         IToken(token).unpause();
     }
 
@@ -137,7 +143,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.mint}
      */
     function mint(address token, address to, uint256 amount) external onlyGov {
-        require(isMintable(token), 'mint capability disabled');
+        require(isMintable(token), "mint capability disabled");
         IToken(token).mint(to, amount);
     }
 
@@ -145,7 +151,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.burn}
      */
     function burn(address token, address user, uint256 amount) external onlyGov {
-        require(isBurnable(token), 'burn capability disabled');
+        require(isBurnable(token), "burn capability disabled");
         IToken(token).burn(user, amount);
     }
 
@@ -153,7 +159,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.forceTransfer}
      */
     function forceTransfer(address token, address from, address to, uint256 amount) external onlyGov {
-        require(isForceTransferable(token), 'force transfer capability disabled');
+        require(isForceTransferable(token), "force transfer capability disabled");
         IToken(token).forcedTransfer(from, to, amount);
     }
 
@@ -161,7 +167,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.setFrozen}
      */
     function setFrozen(address token, address user, bool freeze) external onlyGov {
-        require(isFreezable(token), 'freeze capability disabled');
+        require(isFreezable(token), "freeze capability disabled");
         IToken(token).setAddressFrozen(user, freeze);
     }
 
@@ -169,7 +175,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      * @dev see {ITokenController.recover}
      */
     function recover(address token, address lostWallet, address newWallet, address investorOnchainId) external onlyGov {
-        require(isRecoverable(token), 'recover capability disabled');
+        require(isRecoverable(token), "recover capability disabled");
         IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId);
     }
 }

@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Test} from 'forge-std/Test.sol';
-import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
-import {ShareTestUtils} from './utils/ShareTestUtils.sol';
-import {TokenController} from 'contracts/TokenController.sol';
-import {IClaimIssuer} from '@onchain-id/solidity/contracts/interface/IClaimIssuer.sol';
-import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
-import {ClaimTopicsRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol';
-import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol';
-import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
-import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
-import {TokenController} from 'contracts/TokenController.sol';
+import {Test} from "forge-std/Test.sol";
+import {ProtocolFixture, Protocol, Accounts} from "./fixtures/ProtocolFixture.sol";
+import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
+import {TokenController} from "contracts/TokenController.sol";
+import {IClaimIssuer} from "@onchain-id/solidity/contracts/interface/IClaimIssuer.sol";
+import {IIdentity} from "@onchain-id/solidity/contracts/interface/IIdentity.sol";
+import {ClaimTopicsRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol";
+import {
+    TrustedIssuersRegistry
+} from "@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol";
+import {IdentityRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol";
+import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
+import {TokenController} from "contracts/TokenController.sol";
 
 contract SecondaryTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
@@ -49,13 +51,13 @@ contract SecondaryTest is Test, ProtocolFixture {
 
     function test_open_token_transfer_and_transferFrom() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'OPEN', 'OPN', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "OPEN", "OPN", DEFAULT_MAX_SUPPLY);
         _unpauseAndMint(token, buyer, 50);
 
         p.registerIdentity(vm, identityRegistryAgent, user1);
 
         vm.startPrank(buyer);
-        require(token.transfer(user1, 20), 'Transfer failed');
+        require(token.transfer(user1, 20), "Transfer failed");
         assertEq(token.balanceOf(buyer), 30);
         assertEq(token.balanceOf(user1), 20);
 
@@ -63,7 +65,7 @@ contract SecondaryTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(user1);
-        require(token.transferFrom(buyer, user1, 10), 'TransferFrom failed');
+        require(token.transferFrom(buyer, user1, 10), "TransferFrom failed");
         assertEq(token.balanceOf(buyer), 20);
         assertEq(token.balanceOf(user1), 30);
     }
@@ -71,7 +73,7 @@ contract SecondaryTest is Test, ProtocolFixture {
     function test_permissioned_token_requires_KYC_for_recipient() public {
         uint256 kycTopic = 7;
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'PERM', 'PRM', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "PERM", "PRM", DEFAULT_MAX_SUPPLY);
         // Mint first before adding KYC requirements
         _unpauseAndMint(token, buyer, 40);
 
@@ -89,11 +91,11 @@ contract SecondaryTest is Test, ProtocolFixture {
         vm.prank(buyer);
         try token.transfer(user1, 5) returns (bool ok) {
             assertFalse(ok);
-            fail('Expected transfer to revert');
+            fail("Expected transfer to revert");
         } catch Error(string memory reason) {
-            assertEq(reason, 'Transfer not possible');
+            assertEq(reason, "Transfer not possible");
         } catch {
-            fail('Unexpected revert');
+            fail("Unexpected revert");
         }
 
         // add claim to user1 identity using a ClaimIssuer signature
@@ -108,23 +110,23 @@ contract SecondaryTest is Test, ProtocolFixture {
         vm.prank(claimIssuer);
         IClaimIssuer(address(p.claimIssuer)).addKey(keccak256(abi.encode(claimIssuer)), 3, 1);
 
-        bytes memory claimData = hex'0042';
+        bytes memory claimData = hex"0042";
         bytes32 dataHash = keccak256(abi.encode(address(userIdentity), kycTopic, claimData));
-        bytes32 ethSignedHash = keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', dataHash));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(5, ethSignedHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.prank(user1);
-        userIdentity.addClaim(kycTopic, 1, address(p.claimIssuer), signature, claimData, '');
+        userIdentity.addClaim(kycTopic, 1, address(p.claimIssuer), signature, claimData, "");
 
         vm.prank(buyer);
-        require(token.transfer(user1, 5), 'Transfer failed');
+        require(token.transfer(user1, 5), "Transfer failed");
         assertEq(token.balanceOf(user1), 5);
     }
 
     function test_freeze_blocks_transfers() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FRZ', 'FRZ', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "FRZ", "FRZ", DEFAULT_MAX_SUPPLY);
         _unpauseAndMint(token, user1, 100);
 
         vm.prank(tokenAgent);
@@ -133,11 +135,11 @@ contract SecondaryTest is Test, ProtocolFixture {
         vm.prank(user1);
         try token.transfer(user2, 10) returns (bool ok) {
             assertFalse(ok);
-            fail('Expected transfer to revert');
+            fail("Expected transfer to revert");
         } catch Error(string memory reason) {
-            assertEq(reason, 'wallet is frozen');
+            assertEq(reason, "wallet is frozen");
         } catch {
-            fail('Unexpected revert');
+            fail("Unexpected revert");
         }
 
         p.registerIdentity(vm, identityRegistryAgent, user2);
@@ -145,18 +147,18 @@ contract SecondaryTest is Test, ProtocolFixture {
         vm.prank(user1);
         try token.transfer(user2, 1) returns (bool ok) {
             assertFalse(ok);
-            fail('Expected transfer to revert');
+            fail("Expected transfer to revert");
         } catch Error(string memory reason) {
-            assertEq(reason, 'wallet is frozen');
+            assertEq(reason, "wallet is frozen");
         } catch {
-            fail('Unexpected revert');
+            fail("Unexpected revert");
         }
 
         vm.prank(tokenAgent);
         p.tokenController.setFrozen(address(token), user1, false);
 
         vm.prank(user1);
-        require(token.transfer(user2, 10), 'Transfer failed');
+        require(token.transfer(user2, 10), "Transfer failed");
         assertEq(token.balanceOf(user2), 10);
     }
 
@@ -180,7 +182,9 @@ contract SecondaryTest is Test, ProtocolFixture {
         address,
         /*wallet*/
         uint256 topic
-    ) internal {
+    )
+        internal
+    {
         // In real system, use ClaimIssuer and signature; here we simulate by bypassing to token-specific registries (owned by multisig)
         IdentityRegistry ir = IdentityRegistry(address(token.identityRegistry()));
         ClaimTopicsRegistry ctr = ClaimTopicsRegistry(address(ir.topicsRegistry()));

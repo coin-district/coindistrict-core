@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
+import {ITREXFactory} from "@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol";
 
 /**
  * @title IFactory
@@ -21,11 +21,7 @@ interface IFactory {
      * @param shareDecimals The decimals of the share
      */
     event ShareCreated(
-        uint256 indexed shareId,
-        address indexed shareAddress,
-        string shareName,
-        string shareSymbol,
-        uint8 shareDecimals
+        uint256 indexed shareId, address indexed shareAddress, string shareName, string shareSymbol, uint8 shareDecimals
     );
 
     /**

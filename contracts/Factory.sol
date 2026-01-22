@@ -8,11 +8,11 @@ pragma solidity 0.8.17;
  * See {IFactory} for usage and more details.
  */
 
-import {UUPSUpgradeable} from '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
-import {TREXFactory} from '@erc3643org/erc-3643/contracts/factory/TREXFactory.sol';
-import {ITREXFactory} from '@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol';
-import {IGovernance} from './governance/IGovernance.sol';
-import {IFactory} from './IFactory.sol';
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {TREXFactory} from "@erc3643org/erc-3643/contracts/factory/TREXFactory.sol";
+import {ITREXFactory} from "@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol";
+import {IGovernance} from "./governance/IGovernance.sol";
+import {IFactory} from "./IFactory.sol";
 
 /**
  * @title Factory
@@ -59,11 +59,11 @@ contract Factory is IFactory, UUPSUpgradeable {
         address _governance
     ) external initializer {
         __UUPSUpgradeable_init();
-        require(_governance != address(0), 'Factory_InvalidGovernanceAddress');
-        require(_trexFactoryAddr != address(0), 'Factory_InvalidTREXFactoryAddress');
-        require(_salesManagerAddr != address(0), 'Factory_InvalidSalesManagerAddress');
-        require(_tokenControllerAddr != address(0), 'Factory_InvalidTokenControllerAddress');
-        require(_maxSupplyModuleAddr != address(0), 'Factory_InvalidMaxSupplyModuleAddress');
+        require(_governance != address(0), "Factory_InvalidGovernanceAddress");
+        require(_trexFactoryAddr != address(0), "Factory_InvalidTREXFactoryAddress");
+        require(_salesManagerAddr != address(0), "Factory_InvalidSalesManagerAddress");
+        require(_tokenControllerAddr != address(0), "Factory_InvalidTokenControllerAddress");
+        require(_maxSupplyModuleAddr != address(0), "Factory_InvalidMaxSupplyModuleAddress");
         governance = IGovernance(_governance);
         _trexFactory = TREXFactory(_trexFactoryAddr);
         salesManagerAddress = _salesManagerAddr;
@@ -77,12 +77,18 @@ contract Factory is IFactory, UUPSUpgradeable {
     }
 
     function _onlyGov() internal view {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), 'Factory_NotAuthorized');
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "Factory_NotAuthorized");
     }
 
-    function _authorizeUpgrade(address /*newImplementation*/) internal view override {
-        bytes4 selector = bytes4(keccak256('upgradeTo(address)'));
-        require(governance.hasRole(msg.sender, address(this), selector), 'Factory_NotAuthorized');
+    function _authorizeUpgrade(
+        address /*newImplementation*/
+    )
+        internal
+        view
+        override
+    {
+        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
+        require(governance.hasRole(msg.sender, address(this), selector), "Factory_NotAuthorized");
     }
 
     /**
@@ -101,22 +107,22 @@ contract Factory is IFactory, UUPSUpgradeable {
         uint256[][] calldata _issuerClaims,
         uint256 _maxSupply
     ) external onlyGov returns (address) {
-        require(isContractTrexFactoryOwner(), 'Factory_NotOwnerOfTREXFactory');
-        require(_maxSupply > 0, 'Factory_MaxSupplyRequired');
-        require(maxSupplyModule != address(0), 'Factory_MaxSupplyModuleNotSet');
+        require(isContractTrexFactoryOwner(), "Factory_NotOwnerOfTREXFactory");
+        require(_maxSupply > 0, "Factory_MaxSupplyRequired");
+        require(maxSupplyModule != address(0), "Factory_MaxSupplyModuleNotSet");
 
         // Standard deployments cannot include any extra token agents
-        require(_tokenAgents.length == 0, 'Factory_CustomTokenAgentsNotAllowed');
+        require(_tokenAgents.length == 0, "Factory_CustomTokenAgentsNotAllowed");
 
-        require(_irAgents.length <= 5, 'Factory_Max5IRAgents');
+        require(_irAgents.length <= 5, "Factory_Max5IRAgents");
         require(
             _irs == address(0) || IOwnableMinimal(_irs).owner() == address(_trexFactory),
-            'Factory_IRSNot0OrOwnedByTREXFactory'
+            "Factory_IRSNot0OrOwnedByTREXFactory"
         );
         // Claim/issuer constraints mirror TREXFactory
-        require(_claimTopics.length <= 5, 'Factory_Max5ClaimTopics');
-        require(_issuers.length <= 5, 'Factory_Max5Issuers');
-        require(_issuerClaims.length == _issuers.length, 'Factory_ClaimIssuerLengthMismatch');
+        require(_claimTopics.length <= 5, "Factory_Max5ClaimTopics");
+        require(_issuers.length <= 5, "Factory_Max5Issuers");
+        require(_issuerClaims.length == _issuers.length, "Factory_ClaimIssuerLengthMismatch");
 
         // Always exactly these 2 agents: TokenController (capability hub) and SalesManager (minting)
         address[] memory tokenAgents = new address[](2);
@@ -137,13 +143,10 @@ contract Factory is IFactory, UUPSUpgradeable {
         });
 
         tokenDetails.complianceModules[0] = maxSupplyModule;
-        tokenDetails.complianceSettings[0] = abi.encodeWithSignature('setMaxSupply(uint256)', _maxSupply);
+        tokenDetails.complianceSettings[0] = abi.encodeWithSignature("setMaxSupply(uint256)", _maxSupply);
 
-        ITREXFactory.ClaimDetails memory claimDetails = ITREXFactory.ClaimDetails({
-            claimTopics: _claimTopics,
-            issuers: _issuers,
-            issuerClaims: _issuerClaims
-        });
+        ITREXFactory.ClaimDetails memory claimDetails =
+            ITREXFactory.ClaimDetails({claimTopics: _claimTopics, issuers: _issuers, issuerClaims: _issuerClaims});
 
         string memory salt = string(abi.encodePacked(_name, _symbol));
         address tokenAddr = _deployWithAuthorityBoundSalt(salt, tokenDetails, claimDetails);
@@ -158,8 +161,8 @@ contract Factory is IFactory, UUPSUpgradeable {
         ITREXFactory.TokenDetails memory _tokenDetails,
         ITREXFactory.ClaimDetails memory _claimDetails
     ) public onlyGov returns (address) {
-        require(isContractTrexFactoryOwner(), 'Factory_NotOwnerOfTREXFactory');
-        require(_tokenDetails.tokenAgents.length <= 5, 'Factory_Max5TokenAgents');
+        require(isContractTrexFactoryOwner(), "Factory_NotOwnerOfTREXFactory");
+        require(_tokenDetails.tokenAgents.length <= 5, "Factory_Max5TokenAgents");
         return _deployWithAuthorityBoundSalt(_salt, _tokenDetails, _claimDetails);
     }
 
@@ -186,13 +189,13 @@ contract Factory is IFactory, UUPSUpgradeable {
     ) internal returns (address) {
         bytes memory symbolBytes = bytes(_tokenDetails.symbol);
         bytes32 _symbolKey;
-        assembly ('memory-safe') {
+        assembly ("memory-safe") {
             _symbolKey := keccak256(add(symbolBytes, 0x20), mload(symbolBytes))
         }
-        require(!_usedSymbols[_symbolKey], 'Factory_SymbolAlreadyUsed');
+        require(!_usedSymbols[_symbolKey], "Factory_SymbolAlreadyUsed");
 
         string memory authorityBoundSalt = string(abi.encodePacked(_salt, address(governance)));
-        require(_trexFactory.getToken(authorityBoundSalt) == address(0), 'Factory_SaltAlreadyUsed');
+        require(_trexFactory.getToken(authorityBoundSalt) == address(0), "Factory_SaltAlreadyUsed");
 
         _trexFactory.deployTREXSuite(authorityBoundSalt, _tokenDetails, _claimDetails);
         address tokenAddr = _trexFactory.getToken(authorityBoundSalt);

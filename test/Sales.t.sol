@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Test} from 'forge-std/Test.sol';
-import {ProtocolFixture, Protocol, Accounts} from './fixtures/ProtocolFixture.sol';
-import {ShareTestUtils} from './utils/ShareTestUtils.sol';
+import {Test} from "forge-std/Test.sol";
+import {ProtocolFixture, Protocol, Accounts} from "./fixtures/ProtocolFixture.sol";
+import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
 
-import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
-import {IIdentity} from '@onchain-id/solidity/contracts/interface/IIdentity.sol';
-import {IClaimIssuer} from '@onchain-id/solidity/contracts/interface/IClaimIssuer.sol';
+import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
+import {IIdentity} from "@onchain-id/solidity/contracts/interface/IIdentity.sol";
+import {IClaimIssuer} from "@onchain-id/solidity/contracts/interface/IClaimIssuer.sol";
 
-import {ClaimTopicsRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol';
-import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol';
-import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
-import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
+import {ClaimTopicsRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol";
+import {
+    TrustedIssuersRegistry
+} from "@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol";
+import {IdentityRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol";
+import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 
-import {MockToken} from 'contracts/mocks/MockToken.sol';
-import {MockFeeOnTransferToken} from 'contracts/mocks/MockFeeOnTransferToken.sol';
-import {MockAggregatorV3} from 'contracts/mocks/MockAggregatorV3.sol';
+import {MockToken} from "contracts/mocks/MockToken.sol";
+import {MockFeeOnTransferToken} from "contracts/mocks/MockFeeOnTransferToken.sol";
+import {MockAggregatorV3} from "contracts/mocks/MockAggregatorV3.sol";
 
 contract SalesTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
@@ -58,7 +60,7 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_buy_open_token_succeeds_after_allowlist_and_unpause() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'SALE', 'SAL', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "SALE", "SAL", DEFAULT_MAX_SUPPLY);
 
         // prepare controller: set caps, unpause
         uint256 PAUSABLE_BIT = 1 << 1;
@@ -72,7 +74,7 @@ contract SalesTest is Test, ProtocolFixture {
         p.registerIdentity(vm, identityRegistryAgent, buyer);
 
         // payment token + oracle
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         stable.mint(buyer, 1_000_000_000); // 1000 USD
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000); // 1 token = 1 USD
 
@@ -87,15 +89,8 @@ contract SalesTest is Test, ProtocolFixture {
         uint64 deadline = uint64(block.timestamp + 3600);
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            100,
-            priceUsdPerShare,
-            start,
-            deadline
-        );
+        p.salesManager
+            .createSale(address(token), _single(address(stable)), multisig, 100, priceUsdPerShare, start, deadline);
 
         uint256 saleId = p.salesManager.saleCount() - 1;
 
@@ -108,13 +103,13 @@ contract SalesTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         assertEq(token.balanceOf(buyer), 10);
-        (, , , uint256 remaining, , , , , , ) = p.salesManager.getSale(saleId);
+        (,,, uint256 remaining,,,,,,) = p.salesManager.getSale(saleId);
         assertEq(remaining, 90);
     }
 
     function test_buy_reverts_for_fee_on_transfer_payment_token() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FOT', 'FOT', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "FOT", "FOT", DEFAULT_MAX_SUPPLY);
         // prepare controller: set caps, unpause
         uint256 PAUSABLE_BIT = 1 << 1;
         p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
@@ -128,7 +123,7 @@ contract SalesTest is Test, ProtocolFixture {
 
         // fee-on-transfer payment token + oracle
         address feeCollector = vm.addr(4242);
-        MockFeeOnTransferToken fot = new MockFeeOnTransferToken('FOTUSD', 'FOTUSD', 6, 100, feeCollector); // 1% fee
+        MockFeeOnTransferToken fot = new MockFeeOnTransferToken("FOTUSD", "FOTUSD", 6, 100, feeCollector); // 1% fee
         fot.mint(buyer, 1_000_000_000); // 1000 tokens
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000); // 1 token = 1 USD
 
@@ -143,15 +138,8 @@ contract SalesTest is Test, ProtocolFixture {
         uint64 deadline = uint64(block.timestamp + 3600);
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(
-            address(token),
-            _single(address(fot)),
-            multisig,
-            100,
-            priceUsdPerShare,
-            start,
-            deadline
-        );
+        p.salesManager
+            .createSale(address(token), _single(address(fot)), multisig, 100, priceUsdPerShare, start, deadline);
 
         uint256 saleId = p.salesManager.saleCount() - 1;
 
@@ -164,7 +152,7 @@ contract SalesTest is Test, ProtocolFixture {
 
         vm.startPrank(buyer);
         fot.approve(address(p.salesManager), 10_000_000); // 10 tokens max
-        vm.expectRevert(bytes('Sale_TransferAmountMismatch'));
+        vm.expectRevert(bytes("Sale_TransferAmountMismatch"));
         p.salesManager.buy(saleId, 10, buyer, address(fot), 10_000_000);
         vm.stopPrank();
 
@@ -177,7 +165,7 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_buy_reverts_before_sale_start() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'START', 'STR', DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "START", "STR", DEFAULT_MAX_SUPPLY);
         uint256 PAUSABLE_BIT = 1 << 1;
         p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
         vm.stopPrank();
@@ -187,7 +175,7 @@ contract SalesTest is Test, ProtocolFixture {
 
         p.registerIdentity(vm, identityRegistryAgent, buyer);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         stable.mint(buyer, 1_000_000_000);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
@@ -201,22 +189,15 @@ contract SalesTest is Test, ProtocolFixture {
         uint64 deadline = uint64(block.timestamp + 7200); // 2 hours in the future
 
         vm.prank(salesManagerSalesOperator);
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            100,
-            priceUsdPerShare,
-            start,
-            deadline
-        );
+        p.salesManager
+            .createSale(address(token), _single(address(stable)), multisig, 100, priceUsdPerShare, start, deadline);
 
         uint256 saleId = p.salesManager.saleCount() - 1;
 
         // Try to buy before start - should revert
         vm.startPrank(buyer);
         stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes('Sale_NotStarted'));
+        vm.expectRevert(bytes("Sale_NotStarted"));
         p.salesManager.buy(saleId, 10, buyer, address(stable), 10_000_000);
         vm.stopPrank();
 
@@ -231,9 +212,9 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_createSale_rejects_bad_inputs_and_cap() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'BAD', 'BAD', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "BAD", "BAD", 1000);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -245,103 +226,57 @@ contract SalesTest is Test, ProtocolFixture {
         uint64 nowTs = uint64(block.timestamp);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes('Sale_InvalidAddress'));
-        p.salesManager.createSale(
-            ZERO,
-            _single(address(stable)),
-            multisig,
-            10,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 200
-        );
+        vm.expectRevert(bytes("Sale_InvalidAddress"));
+        p.salesManager
+            .createSale(ZERO, _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes('Sale_InvalidRecipient'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            ZERO,
-            10,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 200
-        );
+        vm.expectRevert(bytes("Sale_InvalidRecipient"));
+        p.salesManager
+            .createSale(address(token), _single(address(stable)), ZERO, 10, priceUsdPerShare, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes('Sale_ZeroSupply'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            0,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 200
-        );
+        vm.expectRevert(bytes("Sale_ZeroSupply"));
+        p.salesManager
+            .createSale(
+                address(token), _single(address(stable)), multisig, 0, priceUsdPerShare, nowTs + 100, nowTs + 200
+            );
 
-        vm.expectRevert(bytes('Sale_ZeroPrice'));
+        vm.expectRevert(bytes("Sale_ZeroPrice"));
         p.salesManager.createSale(address(token), _single(address(stable)), multisig, 10, 0, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes('Sale_InvalidStart'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            10,
-            priceUsdPerShare,
-            nowTs,
-            nowTs + 200
-        );
+        vm.expectRevert(bytes("Sale_InvalidStart"));
+        p.salesManager
+            .createSale(address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs, nowTs + 200);
 
-        vm.expectRevert(bytes('Sale_InvalidStart'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            10,
-            priceUsdPerShare,
-            nowTs - 1,
-            nowTs + 200
-        );
+        vm.expectRevert(bytes("Sale_InvalidStart"));
+        p.salesManager
+            .createSale(
+                address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs - 1, nowTs + 200
+            );
 
-        vm.expectRevert(bytes('Sale_InvalidDeadline'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            10,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 100
-        );
+        vm.expectRevert(bytes("Sale_InvalidDeadline"));
+        p.salesManager
+            .createSale(
+                address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 100
+            );
 
-        vm.expectRevert(bytes('Sale_InvalidDeadline'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            10,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 50
-        );
+        vm.expectRevert(bytes("Sale_InvalidDeadline"));
+        p.salesManager
+            .createSale(
+                address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 50
+            );
 
         // exceeding cap
-        vm.expectRevert(bytes('Sale_SupplyExceedsCap'));
-        p.salesManager.createSale(
-            address(token),
-            _single(address(stable)),
-            multisig,
-            2000,
-            priceUsdPerShare,
-            nowTs + 100,
-            nowTs + 1000
-        );
+        vm.expectRevert(bytes("Sale_SupplyExceedsCap"));
+        p.salesManager
+            .createSale(
+                address(token), _single(address(stable)), multisig, 2000, priceUsdPerShare, nowTs + 100, nowTs + 1000
+            );
         vm.stopPrank();
     }
 
     function test_pause_unpause_sale() public {
         vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'P', 'P', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "P", "P", 1000);
         uint256 PAUSABLE_BIT = 1 << 1;
         p.tokenController.setTokenCapsInitial(address(token), PAUSABLE_BIT);
         vm.stopPrank();
@@ -354,7 +289,7 @@ contract SalesTest is Test, ProtocolFixture {
         vm.prank(identityRegistryAgent);
         p.identityRegistry.registerIdentity(buyer, buyerIdentity, 1);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         stable.mint(buyer, 1_000_000_000);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
@@ -381,7 +316,7 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.pauseSale(saleId);
 
         vm.startPrank(buyer);
-        vm.expectRevert(bytes('Sale_Paused'));
+        vm.expectRevert(bytes("Sale_Paused"));
         p.salesManager.buy(saleId, 5, buyer, address(stable), 10_000_000);
         vm.stopPrank();
 
@@ -396,7 +331,7 @@ contract SalesTest is Test, ProtocolFixture {
     function test_permissioned_buy_requires_KYC_claim() public {
         uint256 KYC_TOPIC = 7;
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'KYC', 'KYC', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "KYC", "KYC", 1000);
 
         // add claim topic + trusted issuer on token-specific registries (owned by multisig after token creation)
         IdentityRegistry ir = IdentityRegistry(address(token.identityRegistry()));
@@ -419,7 +354,7 @@ contract SalesTest is Test, ProtocolFixture {
         // register buyer identity but no claim yet
         p.registerIdentity(vm, identityRegistryAgent, buyer);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         stable.mint(buyer, 1_000_000_000);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
@@ -455,11 +390,11 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_updateSalePaymentTokensAllowed_requires_allowlist_and_oracle() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'U', 'U', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "U", "U", 1000);
         _unpauseToken(token, (1 << 1));
         p.registerIdentity(vm, identityRegistryAgent, buyer);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -474,10 +409,10 @@ contract SalesTest is Test, ProtocolFixture {
         uint256 saleId = p.salesManager.saleCount() - 1;
 
         // new token not allowlisted
-        MockToken unallowed = new MockToken('UNL', 'UNL', 6);
+        MockToken unallowed = new MockToken("UNL", "UNL", 6);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes('Sale_PaymentTokenNotAllowed'));
+        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
         p.salesManager.updateSalePaymentTokensAllowed(saleId, _single(address(unallowed)));
         vm.stopPrank();
 
@@ -487,7 +422,7 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.setAllowedPaymentToken(address(unallowed), true);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes('Sale_OracleNotConfigured'));
+        vm.expectRevert(bytes("Sale_OracleNotConfigured"));
         p.salesManager.updateSalePaymentTokensAllowed(saleId, _single(address(unallowed)));
         vm.stopPrank();
 
@@ -499,18 +434,18 @@ contract SalesTest is Test, ProtocolFixture {
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.updateSalePaymentTokensAllowed(saleId, _single(address(unallowed)));
-        (, address[] memory allowed, , , , , , , , ) = p.salesManager.getSale(saleId);
+        (, address[] memory allowed,,,,,,,,) = p.salesManager.getSale(saleId);
         assertEq(allowed.length, 1);
         assertEq(allowed[0], address(unallowed));
     }
 
     function test_updateSaleFundsRecipient_routes_funds() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'F', 'F', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "F", "F", 1000);
         _unpauseToken(token, (1 << 1));
         p.registerIdentity(vm, identityRegistryAgent, buyer);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         stable.mint(buyer, 1_000_000_000);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
@@ -545,12 +480,12 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_fulfillFiatOrder_respects_pause_and_deadline() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, 'FFO', 'FFO', 1000);
+        Token token = p.createShare(multisig, tokenAgent, identityRegistryAgent, "FFO", "FFO", 1000);
         _unpauseToken(token, (1 << 1));
         address recipient = vm.addr(4567);
         p.registerIdentity(vm, identityRegistryAgent, recipient);
 
-        MockToken stable = new MockToken('USD', 'USD', 6);
+        MockToken stable = new MockToken("USD", "USD", 6);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -573,23 +508,23 @@ contract SalesTest is Test, ProtocolFixture {
         p.salesManager.pauseSale(saleId);
 
         vm.startPrank(fiatOrderSigner);
-        vm.expectRevert(bytes('Sale_Paused'));
-        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes('ref')));
+        vm.expectRevert(bytes("Sale_Paused"));
+        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes("ref")));
         vm.stopPrank();
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.unpauseSale(saleId);
 
         vm.prank(fiatOrderSigner);
-        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes('ref')));
+        p.salesManager.fulfillFiatOrder(saleId, 10, recipient, keccak256(bytes("ref")));
         assertEq(token.balanceOf(recipient), 10);
-        (, , , uint256 remaining, , , , , , ) = p.salesManager.getSale(saleId);
+        (,,, uint256 remaining,,,,,,) = p.salesManager.getSale(saleId);
         assertEq(remaining, 40);
     }
 
     function test_rescueTokens_rejects_allowed_payment_tokens() public {
         // Setup: Create an allowed payment token
-        MockToken allowedToken = new MockToken('USDC', 'USDC', 6);
+        MockToken allowedToken = new MockToken("USDC", "USDC", 6);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -603,7 +538,7 @@ contract SalesTest is Test, ProtocolFixture {
 
         // Attempt to rescue allowed payment token - should fail
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Rescue_UseWithdrawFundsForPaymentTokens'));
+        vm.expectRevert(bytes("Rescue_UseWithdrawFundsForPaymentTokens"));
         p.salesManager.rescueTokens(address(allowedToken), recipient, 50_000_000);
         vm.stopPrank();
 
@@ -622,7 +557,7 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_rescueTokens_succeeds_for_non_allowed_tokens() public {
         // Create a non-allowed token (e.g., accidentally sent to contract)
-        MockToken randomToken = new MockToken('RANDOM', 'RND', 18);
+        MockToken randomToken = new MockToken("RANDOM", "RND", 18);
         randomToken.mint(address(p.salesManager), 1_000_000_000_000_000_000); // 1 token
         address recipient = vm.addr(8888);
 
@@ -636,19 +571,19 @@ contract SalesTest is Test, ProtocolFixture {
     }
 
     function test_rescueTokens_rejects_zero_address() public {
-        MockToken randomToken = new MockToken('RANDOM', 'RND', 18);
+        MockToken randomToken = new MockToken("RANDOM", "RND", 18);
         randomToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Rescue_InvalidRecipient'));
+        vm.expectRevert(bytes("Rescue_InvalidRecipient"));
         p.salesManager.rescueTokens(address(randomToken), ZERO, 100_000_000_000_000_000);
         vm.stopPrank();
     }
 
     function test_withdrawFunds_succeeds_for_allowed_payment_tokens() public {
         // Setup: Create and allowlist payment tokens
-        MockToken usdc = new MockToken('USDC', 'USDC', 6);
-        MockToken usdt = new MockToken('USDT', 'USDT', 6);
+        MockToken usdc = new MockToken("USDC", "USDC", 6);
+        MockToken usdt = new MockToken("USDT", "USDT", 6);
         MockAggregatorV3 oracle1 = new MockAggregatorV3(8, 100_000_000);
         MockAggregatorV3 oracle2 = new MockAggregatorV3(8, 100_000_000);
 
@@ -689,12 +624,12 @@ contract SalesTest is Test, ProtocolFixture {
     }
 
     function test_withdrawFunds_rejects_non_allowed_tokens() public {
-        MockToken unallowedToken = new MockToken('UNL', 'UNL', 18);
+        MockToken unallowedToken = new MockToken("UNL", "UNL", 18);
         unallowedToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
         address recipient = vm.addr(6666);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Sale_PaymentTokenNotAllowed'));
+        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
         p.salesManager.withdrawFunds(_single(address(unallowedToken)), recipient, _singleUint(500_000_000_000_000_000));
         vm.stopPrank();
 
@@ -704,7 +639,7 @@ contract SalesTest is Test, ProtocolFixture {
     }
 
     function test_withdrawFunds_rejects_zero_address() public {
-        MockToken usdc = new MockToken('USDC', 'USDC', 6);
+        MockToken usdc = new MockToken("USDC", "USDC", 6);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -715,14 +650,14 @@ contract SalesTest is Test, ProtocolFixture {
         usdc.mint(address(p.salesManager), 100_000_000);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Rescue_InvalidRecipient'));
+        vm.expectRevert(bytes("Rescue_InvalidRecipient"));
         p.salesManager.withdrawFunds(_single(address(usdc)), ZERO, _singleUint(50_000_000));
         vm.stopPrank();
     }
 
     function test_withdrawFunds_rejects_length_mismatch() public {
-        MockToken usdc = new MockToken('USDC', 'USDC', 6);
-        MockToken usdt = new MockToken('USDT', 'USDT', 6);
+        MockToken usdc = new MockToken("USDC", "USDC", 6);
+        MockToken usdt = new MockToken("USDT", "USDT", 6);
         MockAggregatorV3 oracle1 = new MockAggregatorV3(8, 100_000_000);
         MockAggregatorV3 oracle2 = new MockAggregatorV3(8, 100_000_000);
 
@@ -745,7 +680,7 @@ contract SalesTest is Test, ProtocolFixture {
         amounts[0] = 50_000_000;
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Sale_LengthMismatch'));
+        vm.expectRevert(bytes("Sale_LengthMismatch"));
         p.salesManager.withdrawFunds(tokens, recipient, amounts);
         vm.stopPrank();
 
@@ -759,8 +694,8 @@ contract SalesTest is Test, ProtocolFixture {
 
     function test_withdrawFunds_partial_allowed_token_mix_reverts() public {
         // Setup: One allowed, one not allowed
-        MockToken allowedToken = new MockToken('USDC', 'USDC', 6);
-        MockToken unallowedToken = new MockToken('UNL', 'UNL', 18);
+        MockToken allowedToken = new MockToken("USDC", "USDC", 6);
+        MockToken unallowedToken = new MockToken("UNL", "UNL", 18);
         MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
 
         vm.startPrank(salesManagerSalesConfig);
@@ -781,7 +716,7 @@ contract SalesTest is Test, ProtocolFixture {
         amounts[1] = 500_000_000_000_000_000;
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes('Sale_PaymentTokenNotAllowed'));
+        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
         p.salesManager.withdrawFunds(tokens, recipient, amounts);
         vm.stopPrank();
 

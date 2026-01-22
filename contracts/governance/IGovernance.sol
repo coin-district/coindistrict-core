@@ -27,11 +27,10 @@ interface IGovernance {
      * @return immediate true if the caller has permission immediately, false otherwise
      * @return setback delay in seconds if the caller has permission with a delay
      */
-    function canCall(
-        address caller,
-        address target,
-        bytes4 selector
-    ) external view returns (bool immediate, uint32 setback);
+    function canCall(address caller, address target, bytes4 selector)
+        external
+        view
+        returns (bool immediate, uint32 setback);
 
     /**
      * @notice Get the AccessManager address (for compatibility)

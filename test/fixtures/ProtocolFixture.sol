@@ -1,38 +1,48 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Test} from 'forge-std/Test.sol';
-import {ERC1967Proxy} from '@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol';
+import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {Identity} from '@onchain-id/solidity/contracts/Identity.sol';
-import {ImplementationAuthority as OnchainImplementationAuthority} from '@onchain-id/solidity/contracts/proxy/ImplementationAuthority.sol';
-import {IdFactory} from '@onchain-id/solidity/contracts/factory/IdFactory.sol';
-import {Gateway} from '@onchain-id/solidity/contracts/gateway/Gateway.sol';
-import {ClaimIssuer} from '@onchain-id/solidity/contracts/ClaimIssuer.sol';
+import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
+import {
+    ImplementationAuthority as OnchainImplementationAuthority
+} from "@onchain-id/solidity/contracts/proxy/ImplementationAuthority.sol";
+import {IdFactory} from "@onchain-id/solidity/contracts/factory/IdFactory.sol";
+import {Gateway} from "@onchain-id/solidity/contracts/gateway/Gateway.sol";
+import {ClaimIssuer} from "@onchain-id/solidity/contracts/ClaimIssuer.sol";
 
-import {ClaimTopicsRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol';
-import {TrustedIssuersRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol';
-import {IdentityRegistryStorage} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol';
-import {IdentityRegistry} from '@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol';
-import {IdentityRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/IdentityRegistryProxy.sol';
-import {IdentityRegistryStorageProxy} from '@erc3643org/erc-3643/contracts/proxy/IdentityRegistryStorageProxy.sol';
-import {TrustedIssuersRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/TrustedIssuersRegistryProxy.sol';
-import {ClaimTopicsRegistryProxy} from '@erc3643org/erc-3643/contracts/proxy/ClaimTopicsRegistryProxy.sol';
-import {ModularComplianceProxy} from '@erc3643org/erc-3643/contracts/proxy/ModularComplianceProxy.sol';
-import {ModularCompliance} from '@erc3643org/erc-3643/contracts/compliance/modular/ModularCompliance.sol';
-import {Token} from '@erc3643org/erc-3643/contracts/token/Token.sol';
-import {TREXImplementationAuthority} from '@erc3643org/erc-3643/contracts/proxy/authority/TREXImplementationAuthority.sol';
-import {ITREXImplementationAuthority} from '@erc3643org/erc-3643/contracts/proxy/authority/ITREXImplementationAuthority.sol';
-import {TREXFactory} from '@erc3643org/erc-3643/contracts/factory/TREXFactory.sol';
+import {ClaimTopicsRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol";
+import {
+    TrustedIssuersRegistry
+} from "@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol";
+import {
+    IdentityRegistryStorage
+} from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol";
+import {IdentityRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistry.sol";
+import {IdentityRegistryProxy} from "@erc3643org/erc-3643/contracts/proxy/IdentityRegistryProxy.sol";
+import {IdentityRegistryStorageProxy} from "@erc3643org/erc-3643/contracts/proxy/IdentityRegistryStorageProxy.sol";
+import {TrustedIssuersRegistryProxy} from "@erc3643org/erc-3643/contracts/proxy/TrustedIssuersRegistryProxy.sol";
+import {ClaimTopicsRegistryProxy} from "@erc3643org/erc-3643/contracts/proxy/ClaimTopicsRegistryProxy.sol";
+import {ModularComplianceProxy} from "@erc3643org/erc-3643/contracts/proxy/ModularComplianceProxy.sol";
+import {ModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modular/ModularCompliance.sol";
+import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
+import {
+    TREXImplementationAuthority
+} from "@erc3643org/erc-3643/contracts/proxy/authority/TREXImplementationAuthority.sol";
+import {
+    ITREXImplementationAuthority
+} from "@erc3643org/erc-3643/contracts/proxy/authority/ITREXImplementationAuthority.sol";
+import {TREXFactory} from "@erc3643org/erc-3643/contracts/factory/TREXFactory.sol";
 
-import {MaxSupplyModule} from 'contracts/compliance/modules/MaxSupplyModule.sol';
-import {SalesManager} from 'contracts/SalesManager.sol';
-import {TokenController} from 'contracts/TokenController.sol';
-import {Factory} from 'contracts/Factory.sol';
+import {MaxSupplyModule} from "contracts/compliance/modules/MaxSupplyModule.sol";
+import {SalesManager} from "contracts/SalesManager.sol";
+import {TokenController} from "contracts/TokenController.sol";
+import {Factory} from "contracts/Factory.sol";
 
-import {IAccessManager} from 'contracts/interfaces/IAccessManager.sol';
-import {IGovernance} from 'contracts/governance/IGovernance.sol';
-import {Permission} from './Permissions.sol';
+import {IAccessManager} from "contracts/interfaces/IAccessManager.sol";
+import {IGovernance} from "contracts/governance/IGovernance.sol";
+import {Permission} from "./Permissions.sol";
 
 interface IUUPSUpgradeableLike {
     function upgradeTo(address newImplementation) external;
@@ -96,7 +106,7 @@ abstract contract ProtocolFixture is Test {
     uint32 internal constant ONE_DAY = 1 days;
     uint32 internal constant TWO_DAYS = 2 days;
     uint32 internal constant THREE_DAYS = 3 days;
-    string internal constant ROLE_CONFIG_PATH = 'config/role-and-delays.json';
+    string internal constant ROLE_CONFIG_PATH = "config/role-and-delays.json";
 
     // NOTE: JSON-based role/delay configuration is now resolved via Foundry cheatcodes.
 
@@ -132,11 +142,8 @@ abstract contract ProtocolFixture is Test {
         Token tokenImpl = new Token();
         TREXImplementationAuthority trexIa = new TREXImplementationAuthority(true, address(0), address(0));
 
-        ITREXImplementationAuthority.Version memory version = ITREXImplementationAuthority.Version({
-            major: 4,
-            minor: 0,
-            patch: 0
-        });
+        ITREXImplementationAuthority.Version memory version =
+            ITREXImplementationAuthority.Version({major: 4, minor: 0, patch: 0});
         ITREXImplementationAuthority.TREXContracts memory trexContracts = ITREXImplementationAuthority.TREXContracts({
             tokenImplementation: address(tokenImpl),
             ctrImplementation: address(ctrImpl),
@@ -156,12 +163,12 @@ abstract contract ProtocolFixture is Test {
 
         // SalesManager proxy
         SalesManager salesManagerImpl = new SalesManager();
-        SalesManager salesManager = SalesManager(address(new ERC1967Proxy(address(salesManagerImpl), '')));
+        SalesManager salesManager = SalesManager(address(new ERC1967Proxy(address(salesManagerImpl), "")));
         salesManager.initialize(address(governance));
 
         // TokenController proxy
         TokenController tokenControllerImpl = new TokenController();
-        TokenController tokenController = TokenController(address(new ERC1967Proxy(address(tokenControllerImpl), '')));
+        TokenController tokenController = TokenController(address(new ERC1967Proxy(address(tokenControllerImpl), "")));
         tokenController.initialize(address(governance));
 
         // MaxSupply module
@@ -169,7 +176,7 @@ abstract contract ProtocolFixture is Test {
 
         // Factory proxy
         Factory factoryImpl = new Factory();
-        Factory factory = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ''))));
+        Factory factory = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ""))));
         factory.initialize(
             address(trexFactory),
             address(salesManager),
@@ -185,10 +192,7 @@ abstract contract ProtocolFixture is Test {
         IdentityRegistryStorageProxy irsProxy = new IdentityRegistryStorageProxy(address(trexIa));
         ModularComplianceProxy modularCompliance = new ModularComplianceProxy(address(trexIa));
         IdentityRegistryProxy irProxy = new IdentityRegistryProxy(
-            address(trexIa),
-            address(trustedIssuersRegistry),
-            address(claimTopicsRegistry),
-            address(irsProxy)
+            address(trexIa), address(trustedIssuersRegistry), address(claimTopicsRegistry), address(irsProxy)
         );
 
         // Bind IRS to IR and transfer ownership to TREXFactory
@@ -252,13 +256,9 @@ abstract contract ProtocolFixture is Test {
         p.identityRegistry.addAgent(a.identityRegistryAgent2);
     }
 
-    function _setRoleForSelector(
-        Protocol memory p,
-        address admin,
-        address target,
-        bytes4 selector,
-        uint64 roleId
-    ) internal {
+    function _setRoleForSelector(Protocol memory p, address admin, address target, bytes4 selector, uint64 roleId)
+        internal
+    {
         vm.prank(admin);
         p.accessManager.setTargetFunctionRole(target, _toSingle(selector), roleId);
     }
@@ -274,23 +274,23 @@ abstract contract ProtocolFixture is Test {
         // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory json = vm.readFile(ROLE_CONFIG_PATH);
 
-        roles.admin = _parseRoleId(json, 'ADMIN_ROLE');
-        roles.upgrader = _parseRoleId(json, 'UPGRADER_ROLE');
-        roles.shareDeployer = _parseRoleId(json, 'SHARE_DEPLOYER_ROLE');
-        roles.salesConfig = _parseRoleId(json, 'SALES_CONFIG_ROLE');
-        roles.salesOperator = _parseRoleId(json, 'SALES_OPERATOR_ROLE');
-        roles.fundsAdmin = _parseRoleId(json, 'FUNDS_ADMIN_ROLE');
-        roles.fiatOrder = _parseRoleId(json, 'FIAT_ORDER_ROLE');
-        roles.pauser = _parseRoleId(json, 'PAUSER_ROLE');
-        roles.minter = _parseRoleId(json, 'MINTER_ROLE');
-        roles.burner = _parseRoleId(json, 'BURNER_ROLE');
-        roles.freezer = _parseRoleId(json, 'FREEZER_ROLE');
-        roles.force = _parseRoleId(json, 'FORCE_ROLE');
-        roles.recovery = _parseRoleId(json, 'RECOVERY_ROLE');
+        roles.admin = _parseRoleId(json, "ADMIN_ROLE");
+        roles.upgrader = _parseRoleId(json, "UPGRADER_ROLE");
+        roles.shareDeployer = _parseRoleId(json, "SHARE_DEPLOYER_ROLE");
+        roles.salesConfig = _parseRoleId(json, "SALES_CONFIG_ROLE");
+        roles.salesOperator = _parseRoleId(json, "SALES_OPERATOR_ROLE");
+        roles.fundsAdmin = _parseRoleId(json, "FUNDS_ADMIN_ROLE");
+        roles.fiatOrder = _parseRoleId(json, "FIAT_ORDER_ROLE");
+        roles.pauser = _parseRoleId(json, "PAUSER_ROLE");
+        roles.minter = _parseRoleId(json, "MINTER_ROLE");
+        roles.burner = _parseRoleId(json, "BURNER_ROLE");
+        roles.freezer = _parseRoleId(json, "FREEZER_ROLE");
+        roles.force = _parseRoleId(json, "FORCE_ROLE");
+        roles.recovery = _parseRoleId(json, "RECOVERY_ROLE");
     }
 
     function _parseRoleId(string memory json, string memory name) internal pure returns (uint64) {
-        bytes memory raw = vm.parseJson(json, string.concat('.roleIds.', name));
+        bytes memory raw = vm.parseJson(json, string.concat(".roleIds.", name));
         return uint64(abi.decode(raw, (uint256)));
     }
 
@@ -319,36 +319,23 @@ abstract contract ProtocolFixture is Test {
 
         // Factory (upgrade selectors live on the UUPS proxy)
         perms[i++] = Permission({
-            target: address(p.factory),
-            selector: IUUPSUpgradeableLike.upgradeTo.selector,
-            roleId: roles.upgrader
+            target: address(p.factory), selector: IUUPSUpgradeableLike.upgradeTo.selector, roleId: roles.upgrader
         });
         perms[i++] = Permission({
-            target: address(p.factory),
-            selector: IUUPSUpgradeableLike.upgradeToAndCall.selector,
-            roleId: roles.upgrader
+            target: address(p.factory), selector: IUUPSUpgradeableLike.upgradeToAndCall.selector, roleId: roles.upgrader
         });
         perms[i++] = Permission({
-            target: address(p.factory),
-            selector: Factory.editMaxSupplyModule.selector,
-            roleId: roles.admin
+            target: address(p.factory), selector: Factory.editMaxSupplyModule.selector, roleId: roles.admin
         });
+        perms[i++] =
+            Permission({target: address(p.factory), selector: Factory.deployShareSuite.selector, roleId: roles.admin});
         perms[i++] = Permission({
-            target: address(p.factory),
-            selector: Factory.deployShareSuite.selector,
-            roleId: roles.admin
-        });
-        perms[i++] = Permission({
-            target: address(p.factory),
-            selector: Factory.createShare.selector,
-            roleId: roles.shareDeployer
+            target: address(p.factory), selector: Factory.createShare.selector, roleId: roles.shareDeployer
         });
 
         // SalesManager (upgrade selectors live on the UUPS proxy)
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: IUUPSUpgradeableLike.upgradeTo.selector,
-            roleId: roles.upgrader
+            target: address(p.salesManager), selector: IUUPSUpgradeableLike.upgradeTo.selector, roleId: roles.upgrader
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
@@ -356,14 +343,10 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.upgrader
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.rescueTokens.selector,
-            roleId: roles.fundsAdmin
+            target: address(p.salesManager), selector: SalesManager.rescueTokens.selector, roleId: roles.fundsAdmin
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.withdrawFunds.selector,
-            roleId: roles.fundsAdmin
+            target: address(p.salesManager), selector: SalesManager.withdrawFunds.selector, roleId: roles.fundsAdmin
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
@@ -396,24 +379,16 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.salesOperator
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.createSale.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.createSale.selector, roleId: roles.salesOperator
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.cancelSale.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.cancelSale.selector, roleId: roles.salesOperator
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.pauseSale.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.pauseSale.selector, roleId: roles.salesOperator
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.unpauseSale.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.unpauseSale.selector, roleId: roles.salesOperator
         });
         perms[i++] = Permission({
             target: address(p.salesManager),
@@ -431,9 +406,7 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.salesOperator
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.fulfillFiatOrder.selector,
-            roleId: roles.fiatOrder
+            target: address(p.salesManager), selector: SalesManager.fulfillFiatOrder.selector, roleId: roles.fiatOrder
         });
 
         // TokenController (upgrade selectors live on the UUPS proxy)
@@ -448,9 +421,7 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.upgrader
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.setTokenCaps.selector,
-            roleId: roles.admin
+            target: address(p.tokenController), selector: TokenController.setTokenCaps.selector, roleId: roles.admin
         });
         perms[i++] = Permission({
             target: address(p.tokenController),
@@ -458,39 +429,25 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.shareDeployer
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.pause.selector,
-            roleId: roles.pauser
+            target: address(p.tokenController), selector: TokenController.pause.selector, roleId: roles.pauser
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.unpause.selector,
-            roleId: roles.pauser
+            target: address(p.tokenController), selector: TokenController.unpause.selector, roleId: roles.pauser
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.recover.selector,
-            roleId: roles.recovery
+            target: address(p.tokenController), selector: TokenController.recover.selector, roleId: roles.recovery
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.mint.selector,
-            roleId: roles.minter
+            target: address(p.tokenController), selector: TokenController.mint.selector, roleId: roles.minter
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.burn.selector,
-            roleId: roles.burner
+            target: address(p.tokenController), selector: TokenController.burn.selector, roleId: roles.burner
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.forceTransfer.selector,
-            roleId: roles.force
+            target: address(p.tokenController), selector: TokenController.forceTransfer.selector, roleId: roles.force
         });
         perms[i++] = Permission({
-            target: address(p.tokenController),
-            selector: TokenController.setFrozen.selector,
-            roleId: roles.freezer
+            target: address(p.tokenController), selector: TokenController.setFrozen.selector, roleId: roles.freezer
         });
     }
 
@@ -501,22 +458,21 @@ abstract contract ProtocolFixture is Test {
     }
 
     function _deployAccessManager(address admin) internal returns (address deployed) {
-        bytes memory creation = vm.getCode(
-            'openzeppelin-contracts-v5/contracts/access/manager/AccessManager.sol:AccessManager'
-        );
+        bytes memory creation =
+            vm.getCode("openzeppelin-contracts-v5/contracts/access/manager/AccessManager.sol:AccessManager");
         bytes memory bytecode = abi.encodePacked(creation, abi.encode(admin));
-        assembly ('memory-safe') {
+        assembly ("memory-safe") {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
         }
-        require(deployed != address(0), 'AccessManager deploy failed');
+        require(deployed != address(0), "AccessManager deploy failed");
     }
 
     function _deployGovernance(address accessManager) internal returns (address deployed) {
-        bytes memory creation = vm.getCode('contracts/governance/Governance.sol:Governance');
+        bytes memory creation = vm.getCode("contracts/governance/Governance.sol:Governance");
         bytes memory bytecode = abi.encodePacked(creation, abi.encode(accessManager));
-        assembly ('memory-safe') {
+        assembly ("memory-safe") {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
         }
-        require(deployed != address(0), 'Governance deploy failed');
+        require(deployed != address(0), "Governance deploy failed");
     }
 }

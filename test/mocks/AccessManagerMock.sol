@@ -22,7 +22,13 @@ contract AccessManagerMock {
         }
     }
 
-    function grantRole(uint64 roleId, address account, uint64 /*delay*/) external {
+    function grantRole(
+        uint64 roleId,
+        address account,
+        uint64 /*delay*/
+    )
+        external
+    {
         hasRole[roleId][account] = true;
         emit RoleGranted(roleId, account);
     }
@@ -32,11 +38,11 @@ contract AccessManagerMock {
         emit RoleRevoked(roleId, account);
     }
 
-    function canCall(
-        address caller,
-        address target,
-        bytes4 selector
-    ) external view returns (bool immediate, uint32 delay) {
+    function canCall(address caller, address target, bytes4 selector)
+        external
+        view
+        returns (bool immediate, uint32 delay)
+    {
         uint64 roleId = targetRole[target][selector];
         return (hasRole[roleId][caller], 0);
     }

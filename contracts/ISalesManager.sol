@@ -82,9 +82,7 @@ interface ISalesManager {
     /// @param oldPaymentTokensAllowed Previous list of payment tokens
     /// @param newPaymentTokensAllowed New list of payment tokens
     event SalePaymentTokensAllowedUpdated(
-        uint256 indexed saleId,
-        address[] oldPaymentTokensAllowed,
-        address[] newPaymentTokensAllowed
+        uint256 indexed saleId, address[] oldPaymentTokensAllowed, address[] newPaymentTokensAllowed
     );
 
     /// @notice Emitted when the USD price per share for a sale is updated
@@ -111,10 +109,7 @@ interface ISalesManager {
     /// @param amount Amount of shares minted (smallest units)
     /// @param orderRef Off-chain reference identifier
     event FiatOrderFulfilled(
-        uint256 indexed saleId,
-        address indexed recipient,
-        uint256 amount,
-        bytes32 indexed orderRef
+        uint256 indexed saleId, address indexed recipient, uint256 amount, bytes32 indexed orderRef
     );
 
     /// @notice Emitted when an address is added to or removed from the payment token allowlist
@@ -163,9 +158,7 @@ interface ISalesManager {
     /// @return shareDecimals Cached decimals of the share
     /// @return active Whether the sale is active
     /// @return paused Whether the sale is paused
-    function getSale(
-        uint256 saleId
-    )
+    function getSale(uint256 saleId)
         external
         view
         returns (
@@ -333,9 +326,9 @@ interface ISalesManager {
      * @dev When paused, all buy() and fulfillFiatOrder() operations are blocked
      * @dev Functions are split to enable different delays for each function
      * /
-    function setEmergencyPause() external;
-
-    /**
+     * function setEmergencyPause() external;
+     *
+     **
      * @notice Unpause all sales
      */
     function unsetEmergencyPause() external;

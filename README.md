@@ -15,7 +15,7 @@ Smart contract suite for CoinDistrict, built around the ERC‑3643 standard and 
 
 - **Tooling**
   - **Foundry** (`forge`, `cast`, `anvil`) for build, test, and debugging.
-  - **Prettier + prettier‑plugin‑solidity** (via `package.json`) for formatting.
+  - **Husky** for Git hooks (automatically runs `forge fmt` before commits).
 
 - **External Contracts / Libraries (vendored under `lib/`)**
   - **OpenZeppelin Contracts 4.x** and **Upgradeable**: token, proxy, and UUPS utilities.
@@ -56,7 +56,7 @@ Remappings for all of the above are defined in `foundry.toml` / `remappings.txt`
   - **`roles-and-delays.toml`** – Human‑readable mirror of the role/delay configuration used during design; `config/role-and-delays.json` is the machine‑readable version.
   - **`docs/role-config-spec.md`** – Design spec and rationale for the shared role/delay config between `-core` and `-ops`.
   - **`lib/`** – Vendored external dependencies (OpenZeppelin, ERC‑3643, OnchainID, forge‑std, etc.).
-  - **`package.json` / `pnpm-lock.yaml`** – JS tooling for formatting (no runtime JS/TS stack in this repo).
+  - **`package.json` / `pnpm-lock.yaml`** – JS tooling for Git hooks (Husky) (no runtime JS/TS stack in this repo).
 
 ---
 
@@ -97,8 +97,8 @@ After installation, `foundry.toml` remappings will resolve imports like `@openze
   - `forge test --match-test test_setTokenCapsInitial_only_once_and_sets_initialized_bit`
 
 - **Format Solidity**
-  - Ensure Node.js deps are installed (e.g. `pnpm install`).
-  - Run: `pnpm lint` (runs `prettier . --check` with `prettier-plugin-solidity`).
+  - Run: `forge fmt` to format all Solidity files.
+  - Formatting is automatically run before each commit via Husky pre-commit hook.
 
 ---
 

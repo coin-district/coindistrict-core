@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.22;
 
-import {AccessManager} from '@openzeppelin/contracts-v5/access/manager/AccessManager.sol';
+import {AccessManager} from "@openzeppelin/contracts-v5/access/manager/AccessManager.sol";
 
 /**
  * @title Governance
@@ -22,7 +22,7 @@ contract Governance {
      * @param accessManager_ The AccessManager contract address
      */
     constructor(address accessManager_) {
-        require(accessManager_ != address(0), 'Governance_InvalidAccessManager');
+        require(accessManager_ != address(0), "Governance_InvalidAccessManager");
         _ACCESS_MANAGER = AccessManager(accessManager_);
     }
 
@@ -30,18 +30,18 @@ contract Governance {
      * @dev See {IGovernance.hasRole}
      */
     function hasRole(address caller, address target, bytes4 selector) external view returns (bool) {
-        (bool immediate, ) = _ACCESS_MANAGER.canCall(caller, target, selector);
+        (bool immediate,) = _ACCESS_MANAGER.canCall(caller, target, selector);
         return immediate;
     }
 
     /**
      * @dev See {IGovernance.canCall}
      */
-    function canCall(
-        address caller,
-        address target,
-        bytes4 selector
-    ) external view returns (bool immediate, uint32 delay) {
+    function canCall(address caller, address target, bytes4 selector)
+        external
+        view
+        returns (bool immediate, uint32 delay)
+    {
         return _ACCESS_MANAGER.canCall(caller, target, selector);
     }
 

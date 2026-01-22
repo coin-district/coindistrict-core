@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {AbstractModule} from '@erc3643org/erc-3643/contracts/compliance/modular/modules/AbstractModule.sol';
+import {AbstractModule} from "@erc3643org/erc-3643/contracts/compliance/modular/modules/AbstractModule.sol";
 
 /**
  * @title MaxSupplyModule
@@ -20,7 +20,7 @@ contract MaxSupplyModule is AbstractModule {
         uint256 currentSupply = _currentSupplyByCompliance[msg.sender];
         require(
             maxSupply == 0 || maxSupply >= currentSupply,
-            'MaxSupplyModule: new max supply cannot be below current supply'
+            "MaxSupplyModule: new max supply cannot be below current supply"
         );
         _maxSupplyByCompliance[msg.sender] = maxSupply;
     }
@@ -28,16 +28,38 @@ contract MaxSupplyModule is AbstractModule {
     // --- IModule impl ---
 
     function moduleTransferAction(
-        address /*_from*/,
-        address /*_to*/,
+        address,
+        /*_from*/
+        address,
+        /*_to*/
         uint256 /*_value*/
-    ) external override onlyComplianceCall {}
+    )
+        external
+        override
+        onlyComplianceCall
+    {}
 
-    function moduleMintAction(address /*_to*/, uint256 _value) external override onlyComplianceCall {
+    function moduleMintAction(
+        address,
+        /*_to*/
+        uint256 _value
+    )
+        external
+        override
+        onlyComplianceCall
+    {
         _currentSupplyByCompliance[msg.sender] += _value;
     }
 
-    function moduleBurnAction(address /*_from*/, uint256 _value) external override onlyComplianceCall {
+    function moduleBurnAction(
+        address,
+        /*_from*/
+        uint256 _value
+    )
+        external
+        override
+        onlyComplianceCall
+    {
         uint256 cur = _currentSupplyByCompliance[msg.sender];
         // underflow would revert automatically if inconsistent burns occur
         _currentSupplyByCompliance[msg.sender] = cur - _value;
@@ -48,10 +70,17 @@ contract MaxSupplyModule is AbstractModule {
      */
     function moduleCheck(
         address _from,
-        address /*_to*/,
+        address,
+        /*_to*/
         uint256 _value,
         address _compliance
-    ) external view override onlyBoundCompliance(_compliance) returns (bool) {
+    )
+        external
+        view
+        override
+        onlyBoundCompliance(_compliance)
+        returns (bool)
+    {
         if (_from == address(0)) {
             uint256 maxSupply = _maxSupplyByCompliance[_compliance];
             if (maxSupply == 0) {
@@ -69,12 +98,19 @@ contract MaxSupplyModule is AbstractModule {
         return true;
     }
 
-    function canComplianceBind(address /*_compliance*/) external pure override returns (bool) {
+    function canComplianceBind(
+        address /*_compliance*/
+    )
+        external
+        pure
+        override
+        returns (bool)
+    {
         return true;
     }
 
     function name() external pure override returns (string memory _name) {
-        return 'MaxSupplyModule';
+        return "MaxSupplyModule";
     }
 
     // --- Views ---

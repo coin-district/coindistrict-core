@@ -12,7 +12,8 @@
     "build:abis": "bash scripts/generate-abis.sh",
     "prepublishOnly": "pnpm build",
     "test": "forge test",
-    "lint": "forge lint"
+    "lint": "forge lint",
+    "prepare": "husky"
   },
   "files": [
     "contracts",
@@ -25,7 +26,6 @@
   ],
   "devDependencies": {
     "@chainlink/contracts": "^1.5.0",
-    "prettier": "3.6.2",
-    "prettier-plugin-solidity": "2.1.0"
+    "husky": "^9.0.0"
   }
 }
