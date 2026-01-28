@@ -109,7 +109,6 @@ The protocol uses **OpenZeppelin `AccessManager`** plus a thin `Governance` cont
 - **Roles, IDs & delays**
   - Role IDs and delays are defined once in `config/role-and-delays.json` under `roleIds` and `executionDelaysSeconds`.
   - Consumed by tests (via `ProtocolFixture` and `_ensureRoleConfigLoaded`) to configure `AccessManager`.
-  - Mirrored for humans in `roles-and-delays.toml` and described in detail in `docs/role-config-spec.md`.
 
 - **Function permissions**
   - The `permissions` section in `config/role-and-delays.json` maps contract function names (e.g. `createShare`, `setTokenCapsInitial`, `mint`, `pause`) to roles (`ADMIN_ROLE`, `SHARE_DEPLOYER_ROLE`, etc.).
@@ -128,6 +127,7 @@ This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**
 ### What GPL-3.0 means for this project
 
 This license ensures:
+
 - **Transparency**: All source code is publicly available for review and audit.
 - **Copyleft**: Derivative works must also be licensed under GPL-3.0.
 - **Freedom**: Users can use, modify, and distribute the code, subject to the license terms.
