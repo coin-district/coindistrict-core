@@ -274,7 +274,7 @@ abstract contract ProtocolFixture is Test {
         // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory json = vm.readFile(ROLE_CONFIG_PATH);
 
-        roles.admin = _parseRoleId(json, "ADMIN_ROLE");
+        roles.admin = _parseRoleId(json, "PROTOCOL_ADMIN_ROLE");
         roles.upgrader = _parseRoleId(json, "UPGRADER_ROLE");
         roles.shareDeployer = _parseRoleId(json, "SHARE_DEPLOYER_ROLE");
         roles.salesConfig = _parseRoleId(json, "SALES_CONFIG_ROLE");
