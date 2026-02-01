@@ -1,2 +1,2 @@
 forge fmt
-bash scripts/export-token-source.sh
+bash scripts/export-contracts-source.sh

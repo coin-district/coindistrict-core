@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title ITokenController
  * @author CoinDistrict
- * @dev Version: 0.25.3
+ * @dev Version: 0.25.4
  * @notice Interface for the TokenController contract
  * @dev Provides granular, role- and capability-gated wrappers around ERC-3643 Token agent actions
  * @dev For role values, see Governance.sol constants
