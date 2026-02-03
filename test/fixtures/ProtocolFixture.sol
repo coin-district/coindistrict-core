@@ -235,6 +235,7 @@ abstract contract ProtocolFixture is Test {
         _applyPermissions(p, a.multisig, perms);
 
         // Grant roles (multisig is admin)
+        _grantRole(p, a.multisig, roles.admin, a.multisig);
         _grantRole(p, a.multisig, roles.upgrader, a.multisig);
         _grantRole(p, a.multisig, roles.shareDeployer, a.factoryShareDeployer);
         _grantRole(p, a.multisig, roles.salesConfig, a.salesManagerSalesConfig);
