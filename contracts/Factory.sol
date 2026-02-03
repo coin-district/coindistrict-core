@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 /**
  * @title Factory
  * @author CoinDistrict
- * @dev Version: 0.25.4
+ * @dev Version: 0.26.0
  * @notice Factory for deploying ERC-3643 shares with optional max supply enforcement
  * See {IFactory} for usage and more details.
  */
@@ -195,6 +195,7 @@ contract Factory is IFactory, UUPSUpgradeable {
             _symbolKey := keccak256(add(symbolBytes, 0x20), mload(symbolBytes))
         }
         require(!_usedSymbols[_symbolKey], "Factory_SymbolAlreadyUsed");
+        _usedSymbols[_symbolKey] = true;
 
         string memory authorityBoundSalt = string(abi.encodePacked(_salt, address(governance), block.chainid));
         require(_trexFactory.getToken(authorityBoundSalt) == address(0), "Factory_SaltAlreadyUsed");
@@ -207,7 +208,6 @@ contract Factory is IFactory, UUPSUpgradeable {
         }
         idToShare[shareIdIndex] = tokenAddr;
         shareToId[tokenAddr] = shareIdIndex;
-        _usedSymbols[_symbolKey] = true;
         emit ShareCreated(shareIdIndex, tokenAddr, _tokenDetails.name, _tokenDetails.symbol, _tokenDetails.decimals);
         return tokenAddr;
     }

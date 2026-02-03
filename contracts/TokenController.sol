@@ -10,7 +10,7 @@ import {IGovernance} from "./governance/IGovernance.sol";
 /**
  * @title TokenController
  * @author CoinDistrict
- * @dev Version: 0.25.4
+ * @dev Version: 0.26.0
  * @notice Upgradeable controller that acts as ERC-3643 Token agent and provides granular capability gating
  */
 contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
@@ -160,7 +160,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      */
     function forceTransfer(address token, address from, address to, uint256 amount) external onlyGov {
         require(isForceTransferable(token), "force transfer capability disabled");
-        IToken(token).forcedTransfer(from, to, amount);
+        require(IToken(token).forcedTransfer(from, to, amount), "TokenController_ForcedTransferFailed");
     }
 
     /**
@@ -176,6 +176,6 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      */
     function recover(address token, address lostWallet, address newWallet, address investorOnchainId) external onlyGov {
         require(isRecoverable(token), "recover capability disabled");
-        IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId);
+        require(IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId), "TokenController_RecoveryFailed");
     }
 }

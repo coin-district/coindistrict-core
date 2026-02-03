@@ -17,7 +17,7 @@ import {ISalesManager} from "./ISalesManager.sol";
 /**
  * @title SalesManager
  * @author CoinDistrict
- * @dev Version: 0.25.4
+ * @dev Version: 0.26.0
  * @notice Manages primary sales of ERC-3643 shares against ERC20 payment tokens
  * See {ISalesManager} for usage and more details.
  */
@@ -371,13 +371,13 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
         require(!fiatOrderReferenceFulfilled[_reference], "Sale_FiatOrderReferenceAlreadyFulfilled");
 
-        IToken(s.share).mint(_to, _amount);
         s.remainingSupply -= _amount;
         unchecked {
             saleIdToSold[_saleId] += _amount;
         }
-
         fiatOrderReferenceFulfilled[_reference] = true;
+
+        IToken(s.share).mint(_to, _amount);
         emit FiatOrderFulfilled(_saleId, _to, _amount, _reference);
     }
 
