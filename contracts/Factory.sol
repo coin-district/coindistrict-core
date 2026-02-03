@@ -148,7 +148,9 @@ contract Factory is IFactory, UUPSUpgradeable {
         ITREXFactory.ClaimDetails memory claimDetails =
             ITREXFactory.ClaimDetails({claimTopics: _claimTopics, issuers: _issuers, issuerClaims: _issuerClaims});
 
-        string memory salt = string(abi.encodePacked(_name, _symbol));
+        bytes32 saltHash = keccak256(abi.encode(_name, _symbol));
+        string memory salt = string(abi.encodePacked(saltHash));
+
         address tokenAddr = _deployWithAuthorityBoundSalt(salt, tokenDetails, claimDetails);
         return tokenAddr;
     }
@@ -194,7 +196,7 @@ contract Factory is IFactory, UUPSUpgradeable {
         }
         require(!_usedSymbols[_symbolKey], "Factory_SymbolAlreadyUsed");
 
-        string memory authorityBoundSalt = string(abi.encodePacked(_salt, address(governance)));
+        string memory authorityBoundSalt = string(abi.encodePacked(_salt, address(governance), block.chainid));
         require(_trexFactory.getToken(authorityBoundSalt) == address(0), "Factory_SaltAlreadyUsed");
 
         _trexFactory.deployTREXSuite(authorityBoundSalt, _tokenDetails, _claimDetails);
