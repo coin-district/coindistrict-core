@@ -61,20 +61,17 @@ contract FactoryTest is Test, ProtocolFixture {
 
     function _configureAccessManager() internal {
         RoleIds memory roles = _loadRoleIds();
+        vm.startPrank(multisig);
+
         // Factory permissions
-        vm.prank(multisig);
         _setRoleForSelector(address(p.factory), "upgradeTo(address)", roles.upgrader);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.factory), "upgradeToAndCall(address,bytes)", roles.upgrader);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.factory), "editMaxSupplyModule(address)", roles.admin);
-        vm.prank(multisig);
         _setRoleForSelector(
             address(p.factory),
             "deployShareSuite(string,(address,string,string,uint8,address,address,address[],address[],address[],bytes[],bytes[]),(uint256[],address[],uint256[][]))",
             roles.admin
         );
-        vm.prank(multisig);
         _setRoleForSelector(
             address(p.factory),
             "createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)",
@@ -82,61 +79,41 @@ contract FactoryTest is Test, ProtocolFixture {
         );
 
         // TokenController permissions
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "upgradeTo(address)", roles.upgrader);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "upgradeToAndCall(address,bytes)", roles.upgrader);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "setTokenCaps(address,uint256)", roles.admin);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "setTokenCapsInitial(address,uint256)", roles.shareDeployer);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "pause(address)", roles.pauser);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "unpause(address)", roles.pauser);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "mint(address,address,uint256)", roles.minter);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "burn(address,address,uint256)", roles.burner);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "forceTransfer(address,address,address,uint256)", roles.force);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "setFrozen(address,address,bool)", roles.freezer);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.tokenController), "recover(address,address,address,address)", roles.recovery);
 
         // SalesManager permissions (minimal for these tests)
-        vm.prank(multisig);
         _setRoleForSelector(address(p.salesManager), "upgradeTo(address)", roles.upgrader);
-        vm.prank(multisig);
         _setRoleForSelector(address(p.salesManager), "upgradeToAndCall(address,bytes)", roles.upgrader);
 
         // Grant roles
-        vm.prank(multisig);
         _grantRole(roles.admin, multisig);
-        vm.prank(multisig);
         _grantRole(roles.upgrader, multisig);
-        vm.prank(multisig);
         _grantRole(roles.shareDeployer, factoryShareDeployer);
-        vm.prank(multisig);
         _grantRole(roles.pauser, tokenAgent);
-        vm.prank(multisig);
         _grantRole(roles.minter, tokenAgent);
-        vm.prank(multisig);
         _grantRole(roles.burner, tokenAgent);
-        vm.prank(multisig);
         _grantRole(roles.freezer, tokenAgent);
-        vm.prank(multisig);
         _grantRole(roles.force, tokenAgent);
-        vm.prank(multisig);
         _grantRole(roles.recovery, tokenAgent);
+
+        vm.stopPrank();
     }
 
     function _addGlobalIrAgents() internal {
-        vm.prank(multisig);
+        vm.startPrank(multisig);
         IdentityRegistry(address(p.identityRegistry)).addAgent(identityRegistryAgent);
-        vm.prank(multisig);
         IdentityRegistry(address(p.identityRegistry)).addAgent(identityRegistryAgent2);
+        vm.stopPrank();
     }
 
     function _setRoleForSelector(address target, string memory signature, uint64 roleId) internal {
@@ -543,15 +520,15 @@ contract FactoryTest is Test, ProtocolFixture {
 
         RoleIds memory roles = _loadRoleIds();
         // allow createShare selector on rogue so it passes governance check
-        vm.prank(multisig);
+        address attacker = vm.addr(77);
+        vm.startPrank(multisig);
         _setRoleForSelector(
             address(rogue),
             "createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)",
             roles.shareDeployer
         );
-        address attacker = vm.addr(77);
-        vm.prank(multisig);
         p.accessManager.grantRole(roles.shareDeployer, attacker, 0);
+        vm.stopPrank();
 
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         vm.prank(attacker);
@@ -603,20 +580,16 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.tokenController.setTokenCapsInitial(tokenAddr, caps);
 
-        vm.prank(tokenAgent);
+        vm.startPrank(tokenAgent);
         p.tokenController.unpause(tokenAddr);
-
-        vm.prank(tokenAgent);
         p.tokenController.mint(tokenAddr, buyer, 600);
 
-        vm.prank(tokenAgent);
         vm.expectRevert(); // exceeds cap
         p.tokenController.mint(tokenAddr, buyer, 500);
 
-        vm.prank(tokenAgent);
         p.tokenController.burn(tokenAddr, buyer, 200);
-        vm.prank(tokenAgent);
         p.tokenController.mint(tokenAddr, buyer, 200);
+        vm.stopPrank();
     }
 
     function test_MaxSupplyModuleUpdateViaCompliance() public {
@@ -646,15 +619,17 @@ contract FactoryTest is Test, ProtocolFixture {
         // initial max supply should be 1000
         assertEq(module.getMaxSupply(mcAddr), 1000);
 
+        vm.startPrank(multisig);
+
         bytes memory setCall = abi.encodeWithSignature("setMaxSupply(uint256)", 2000);
-        vm.prank(multisig);
         mc.callModuleFunction(setCall, address(module));
         assertEq(module.getMaxSupply(mcAddr), 2000);
 
         bytes memory setZero = abi.encodeWithSignature("setMaxSupply(uint256)", 0);
-        vm.prank(multisig);
         mc.callModuleFunction(setZero, address(module));
         assertEq(module.getMaxSupply(mcAddr), 0);
+
+        vm.stopPrank();
     }
 
     function test_UpgradeRequiresRole() public {
@@ -686,13 +661,13 @@ contract FactoryTest is Test, ProtocolFixture {
             );
 
         MaxSupplyModule newModule = new MaxSupplyModule();
-        vm.prank(multisig);
+        Factory newImpl = new Factory();
+
+        vm.startPrank(multisig);
         p.factory.editMaxSupplyModule(address(newModule));
         address beforeModule = p.factory.maxSupplyModule();
-
-        Factory newImpl = new Factory();
-        vm.prank(multisig);
         p.factory.upgradeTo(address(newImpl));
+        vm.stopPrank();
 
         assertEq(p.factory.shareIdIndex(), beforeIndex + 1);
         assertEq(p.factory.maxSupplyModule(), beforeModule);
@@ -736,14 +711,14 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(identityRegistryAgent);
         p.identityRegistry.registerIdentity(buyer, buyerIdentity, 1);
 
-        vm.prank(tokenAgent);
+        vm.startPrank(tokenAgent);
         p.tokenController.mint(tokenAddr, buyer, 600);
         assertEq(module.getCurrentSupply(mcAddr), 600);
         assertEq(module.getMaxSupply(mcAddr), 1000);
 
-        vm.prank(tokenAgent);
         p.tokenController.burn(tokenAddr, buyer, 250);
         assertEq(module.getCurrentSupply(mcAddr), 350);
+        vm.stopPrank();
 
         // cannot lower below current supply
         bytes memory setTooLow = abi.encodeWithSignature("setMaxSupply(uint256)", 200);
@@ -902,13 +877,13 @@ contract FactoryTest is Test, ProtocolFixture {
             claimTopics: new uint256[](0), issuers: new address[](0), issuerClaims: new uint256[][](0)
         });
 
-        vm.prank(multisig);
+        vm.startPrank(multisig);
         p.factory.deployShareSuite("SALT", td, cd);
-        vm.prank(multisig);
         vm.expectRevert(bytes("Factory_SaltAlreadyUsed"));
         td.name = "B";
         td.symbol = "B";
         p.factory.deployShareSuite("SALT", td, cd);
+        vm.stopPrank();
     }
 
     function test_UpgradePreservesTrexFactoryOwnership() public {
@@ -919,8 +894,6 @@ contract FactoryTest is Test, ProtocolFixture {
         assertEq(p.trexFactory.owner(), address(p.factory));
         assertTrue(p.factory.isContractTrexFactoryOwner());
     }
-
-    // helpers
 
     // helpers
     function _defaultAgents() internal view returns (address[] memory tokenAgents, address[] memory irAgents) {
