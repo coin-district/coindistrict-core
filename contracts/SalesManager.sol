@@ -208,9 +208,11 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             }
         }
         require(isAllowed, "Sale_PaymentTokenNotAllowed");
+        require(allowedPaymentToken[_paymentToken], "Sale_PaymentTokenNotAllowed");
 
         // Get oracle aggregator (already validated at sale creation)
         address aggregator = paymentTokenToUsdAggregator[_paymentToken];
+        require(aggregator != address(0), "Sale_OracleNotConfigured");
 
         // Calculate USD cost (in 1e8)
         uint256 usdCost = _calculateUsdCost(_amount, s.priceUsdPerShare, s.shareDecimals);
