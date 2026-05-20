@@ -14,7 +14,7 @@ remappings = [
     "@openzeppelin/contracts-v5/=lib/openzeppelin-contracts-v5/contracts/",
     "@erc3643org/erc-3643/=lib/erc-3643/",
     "@onchain-id/solidity/=lib/solidity/",
-    "@chainlink/contracts/=lib/chainlink/contracts/"
+    "@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/"
 ]
 # no ignored_paths in foundry; remappings above pin forge-std to top-level copy
 fs_permissions = [
