@@ -216,6 +216,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
 
         // Calculate USD cost (in 1e8)
         uint256 usdCost = _calculateUsdCost(_amount, s.priceUsdPerShare, s.shareDecimals);
+        require(usdCost > 0, "Sale_ZeroCost");
 
         // Get token/USD price from Chainlink (returns price in 1e8)
         uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(aggregator);
@@ -467,7 +468,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     {
         uint256 scale = 10 ** uint256(_shareDecimals);
         // Use mulDiv to avoid overflow and maintain precision
-        return Math.mulDiv(_amount, _priceUsdPerShare, scale, Math.Rounding.Down);
+        return Math.mulDiv(_amount, _priceUsdPerShare, scale, Math.Rounding.Up);
     }
 
     /**
