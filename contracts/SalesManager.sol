@@ -372,6 +372,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(block.timestamp >= s.start, "Sale_NotStarted");
         require(block.timestamp <= s.deadline, "Sale_Ended");
         require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
+        require(_reference != bytes32(0), "Sale_InvalidFiatOrderReference");
         require(!fiatOrderReferenceFulfilled[_reference], "Sale_FiatOrderReferenceAlreadyFulfilled");
 
         s.remainingSupply -= _amount;
