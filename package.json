@@ -12,7 +12,8 @@
     "build:abis": "bash scripts/generate-abis.sh",
     "export:contracts": "bash scripts/export-contracts-source.sh",
     "prepublishOnly": "pnpm build",
-    "test": "forge test",
+    "test": "forge clean && forge test",
+    "format": "forge fmt && prettier --write \"**/*.{json,md,yaml,yml}\"",
     "lint": "forge lint",
     "prepare": "husky"
   },
@@ -27,6 +28,7 @@
     "out"
   ],
   "devDependencies": {
-    "husky": "^9.0.0"
+    "husky": "^9.0.0",
+    "prettier": "^3.0.0"
   }
 }

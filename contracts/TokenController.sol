@@ -176,6 +176,8 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
      */
     function recover(address token, address lostWallet, address newWallet, address investorOnchainId) external onlyGov {
         require(isRecoverable(token), "recover capability disabled");
-        require(IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId), "TokenController_RecoveryFailed");
+        require(
+            IToken(token).recoveryAddress(lostWallet, newWallet, investorOnchainId), "TokenController_RecoveryFailed"
+        );
     }
 }

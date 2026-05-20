@@ -1,2 +1,2 @@
-forge fmt
+pnpm format
 bash scripts/export-contracts-source.sh
