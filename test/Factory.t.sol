@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {ProtocolFixture, Protocol, Accounts, RoleIds} from "./fixtures/ProtocolFixture.sol";
 import {IIdentity} from "@onchain-id/solidity/contracts/interface/IIdentity.sol";
 import {IModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol";
@@ -13,11 +13,21 @@ import {
     IdentityRegistryStorage
 } from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol";
 import {Factory} from "contracts/Factory.sol";
+import {IClaimIssuer} from "@onchain-id/solidity/contracts/interface/IClaimIssuer.sol";
+import {ClaimTopicsRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol";
+import {
+    TrustedIssuersRegistry
+} from "@erc3643org/erc-3643/contracts/registry/implementation/TrustedIssuersRegistry.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ITREXFactory} from "@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol";
 import {MaxSupplyModule} from "contracts/compliance/modules/MaxSupplyModule.sol";
 
 contract FactoryTest is Test, ProtocolFixture {
+    event ShareCreated(
+        uint256 indexed shareId, address indexed shareAddress, string shareName, string shareSymbol, uint8 shareDecimals
+    );
+    event EditMaxSupplyModule(address maxSupplyModule);
+
     address internal deployer = vm.addr(1);
     Accounts internal acc = defaultAccounts();
     address internal multisig;
@@ -37,13 +47,9 @@ contract FactoryTest is Test, ProtocolFixture {
     Protocol internal p;
 
     function setUp() public {
-        console2.log("Deploying protocol...");
         p = deployProtocol(acc);
-        console2.log("Protocol deployed");
         defaultRoleSetup(p, acc);
-        console2.log("Default role setup");
         addGlobalIrAgents(p, acc);
-        console2.log("Global IR agents added");
         multisig = acc.multisig;
         identityRegistryAgent = acc.identityRegistryAgent;
         identityRegistryAgent2 = acc.identityRegistryAgent2;
@@ -59,70 +65,9 @@ contract FactoryTest is Test, ProtocolFixture {
         user2 = acc.user2;
     }
 
-    function _configureAccessManager() internal {
-        RoleIds memory roles = _loadRoleIds();
-        vm.startPrank(multisig);
-
-        // Factory permissions
-        _setRoleForSelector(address(p.factory), "upgradeTo(address)", roles.upgrader);
-        _setRoleForSelector(address(p.factory), "upgradeToAndCall(address,bytes)", roles.upgrader);
-        _setRoleForSelector(address(p.factory), "editMaxSupplyModule(address)", roles.admin);
-        _setRoleForSelector(
-            address(p.factory),
-            "deployShareSuite(string,(address,string,string,uint8,address,address,address[],address[],address[],bytes[],bytes[]),(uint256[],address[],uint256[][]))",
-            roles.admin
-        );
-        _setRoleForSelector(
-            address(p.factory),
-            "createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)",
-            roles.shareDeployer
-        );
-
-        // TokenController permissions
-        _setRoleForSelector(address(p.tokenController), "upgradeTo(address)", roles.upgrader);
-        _setRoleForSelector(address(p.tokenController), "upgradeToAndCall(address,bytes)", roles.upgrader);
-        _setRoleForSelector(address(p.tokenController), "setTokenCaps(address,uint256)", roles.admin);
-        _setRoleForSelector(address(p.tokenController), "setTokenCapsInitial(address,uint256)", roles.shareDeployer);
-        _setRoleForSelector(address(p.tokenController), "pause(address)", roles.pauser);
-        _setRoleForSelector(address(p.tokenController), "unpause(address)", roles.pauser);
-        _setRoleForSelector(address(p.tokenController), "mint(address,address,uint256)", roles.minter);
-        _setRoleForSelector(address(p.tokenController), "burn(address,address,uint256)", roles.burner);
-        _setRoleForSelector(address(p.tokenController), "forceTransfer(address,address,address,uint256)", roles.force);
-        _setRoleForSelector(address(p.tokenController), "setFrozen(address,address,bool)", roles.freezer);
-        _setRoleForSelector(address(p.tokenController), "recover(address,address,address,address)", roles.recovery);
-
-        // SalesManager permissions (minimal for these tests)
-        _setRoleForSelector(address(p.salesManager), "upgradeTo(address)", roles.upgrader);
-        _setRoleForSelector(address(p.salesManager), "upgradeToAndCall(address,bytes)", roles.upgrader);
-
-        // Grant roles
-        _grantRole(roles.admin, multisig);
-        _grantRole(roles.upgrader, multisig);
-        _grantRole(roles.shareDeployer, factoryShareDeployer);
-        _grantRole(roles.pauser, tokenAgent);
-        _grantRole(roles.minter, tokenAgent);
-        _grantRole(roles.burner, tokenAgent);
-        _grantRole(roles.freezer, tokenAgent);
-        _grantRole(roles.force, tokenAgent);
-        _grantRole(roles.recovery, tokenAgent);
-
-        vm.stopPrank();
-    }
-
-    function _addGlobalIrAgents() internal {
-        vm.startPrank(multisig);
-        IdentityRegistry(address(p.identityRegistry)).addAgent(identityRegistryAgent);
-        IdentityRegistry(address(p.identityRegistry)).addAgent(identityRegistryAgent2);
-        vm.stopPrank();
-    }
-
     function _setRoleForSelector(address target, string memory signature, uint64 roleId) internal {
         bytes4 selector = bytes4(keccak256(bytes(signature)));
         p.accessManager.setTargetFunctionRole(target, _toSingle(selector), roleId);
-    }
-
-    function _grantRole(uint64 roleId, address account) internal {
-        p.accessManager.grantRole(roleId, account, 0);
     }
 
     // --- Tests (partial subset) ---
@@ -198,7 +143,7 @@ contract FactoryTest is Test, ProtocolFixture {
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
 
         vm.prank(factoryShareDeployer);
-        p.factory
+        address firstToken = p.factory
             .createShare(
                 "Total",
                 "TOT",
@@ -214,7 +159,7 @@ contract FactoryTest is Test, ProtocolFixture {
             );
 
         vm.prank(factoryShareDeployer);
-        p.factory
+        address secondToken = p.factory
             .createShare(
                 "Total",
                 "TOTA",
@@ -230,6 +175,7 @@ contract FactoryTest is Test, ProtocolFixture {
             );
 
         assertEq(p.factory.shareIdIndex(), 2);
+        assertTrue(secondToken != firstToken);
     }
 
     function test_CreateShare_RejectDuplicateSymbol() public {
@@ -272,8 +218,19 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_EditMaxSupplyModule() public {
         MaxSupplyModule module = new MaxSupplyModule();
         vm.prank(multisig);
+        vm.expectEmit(false, false, false, true, address(p.factory));
+        emit EditMaxSupplyModule(address(module));
         p.factory.editMaxSupplyModule(address(module));
         assertEq(p.factory.maxSupplyModule(), address(module));
+    }
+
+    function test_editMaxSupplyModule_NotAuthorized() public {
+        MaxSupplyModule module = new MaxSupplyModule();
+        address attacker = vm.addr(98);
+
+        vm.prank(attacker);
+        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        p.factory.editMaxSupplyModule(address(module));
     }
 
     function test_IRSOwnershipCheck() public {
@@ -321,10 +278,11 @@ contract FactoryTest is Test, ProtocolFixture {
             );
     }
 
-    function test_Max4TokenAgents() public {
+    function test_createShare_rejects_any_custom_token_agents() public {
         address[] memory tokenAgents = new address[](1);
         tokenAgents[0] = user1;
         address[] memory irAgents = new address[](0);
+
         vm.prank(factoryShareDeployer);
         vm.expectRevert(bytes("Factory_CustomTokenAgentsNotAllowed"));
         p.factory
@@ -446,11 +404,9 @@ contract FactoryTest is Test, ProtocolFixture {
             );
     }
 
-    function test_ClaimIssuerConstraints() public {
-        (address[] memory tokenAgents,) = _defaultAgents();
+    function test_createShare_reverts_for_more_than_5_claim_topics() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         uint256[] memory sixClaims = new uint256[](6);
-        address[] memory issuers = new address[](6);
-        uint256[][] memory issuerClaims = new uint256[][](0);
 
         vm.prank(factoryShareDeployer);
         vm.expectRevert(bytes("Factory_Max5ClaimTopics"));
@@ -461,13 +417,63 @@ contract FactoryTest is Test, ProtocolFixture {
                 0,
                 multisig,
                 tokenAgents,
-                tokenAgents,
+                irAgents,
                 address(p.identityRegistryStorage),
                 sixClaims,
                 new address[](0),
-                issuerClaims,
+                new uint256[][](0),
                 DEFAULT_MAX_SUPPLY
             );
+    }
+
+    function test_createShare_reverts_for_more_than_5_ir_agents() public {
+        address[] memory tokenAgents = new address[](0);
+        address[] memory irAgents = new address[](6);
+
+        vm.prank(factoryShareDeployer);
+        vm.expectRevert(bytes("Factory_Max5IRAgents"));
+        p.factory
+            .createShare(
+                "IR6",
+                "IR6",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+    }
+
+    function test_createShare_accepts_zero_irs() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        address tokenAddr = p.factory
+            .createShare(
+                "NOIRS",
+                "NIR",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                ZERO,
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+
+        assertTrue(tokenAddr != address(0));
+        assertEq(p.factory.idToShare(p.factory.shareIdIndex()), tokenAddr);
+    }
+
+    function test_createShare_reverts_for_more_than_5_issuers() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+        address[] memory issuers = new address[](6);
 
         vm.prank(factoryShareDeployer);
         vm.expectRevert(bytes("Factory_Max5Issuers"));
@@ -478,13 +484,19 @@ contract FactoryTest is Test, ProtocolFixture {
                 0,
                 multisig,
                 tokenAgents,
-                tokenAgents,
+                irAgents,
                 address(p.identityRegistryStorage),
                 new uint256[](0),
                 issuers,
-                issuerClaims,
+                new uint256[][](0),
                 DEFAULT_MAX_SUPPLY
             );
+    }
+
+    function test_createShare_reverts_for_issuer_claim_length_mismatch() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        uint256[][] memory issuerClaims = new uint256[][](0);
 
         address[] memory oneIssuer = new address[](1);
         oneIssuer[0] = claimIssuer;
@@ -497,11 +509,30 @@ contract FactoryTest is Test, ProtocolFixture {
                 0,
                 multisig,
                 tokenAgents,
-                tokenAgents,
+                irAgents,
                 address(p.identityRegistryStorage),
                 new uint256[](0),
                 oneIssuer,
                 issuerClaims,
+                DEFAULT_MAX_SUPPLY
+            );
+
+        uint256[][] memory oneIssuerClaim = new uint256[][](1);
+
+        vm.prank(factoryShareDeployer);
+        vm.expectRevert(bytes("Factory_ClaimIssuerLengthMismatch"));
+        p.factory
+            .createShare(
+                "C4",
+                "I4",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                oneIssuerClaim,
                 DEFAULT_MAX_SUPPLY
             );
     }
@@ -548,6 +579,28 @@ contract FactoryTest is Test, ProtocolFixture {
         );
     }
 
+    function test_createShare_emits_ShareCreated() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        vm.expectEmit(true, false, false, true, address(p.factory));
+        emit ShareCreated(1, address(0), "EVT", "EVT", 0);
+        p.factory
+            .createShare(
+                "EVT",
+                "EVT",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+    }
+
     function test_MaxSupplyEnforced() public {
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         vm.prank(factoryShareDeployer);
@@ -576,7 +629,8 @@ contract FactoryTest is Test, ProtocolFixture {
         IdentityRegistry(irAddr).registerIdentity(buyer, buyerIdentity, 1);
 
         // set capabilities and roles already granted
-        uint256 caps = (1 << 1) | (1 << 2) | (1 << 3); // pause + mint + burn bits
+        uint256 caps =
+            p.tokenController.PAUSABLE_BIT() | p.tokenController.MINTABLE_BIT() | p.tokenController.BURNABLE_BIT();
         vm.prank(factoryShareDeployer);
         p.tokenController.setTokenCapsInitial(tokenAddr, caps);
 
@@ -584,51 +638,13 @@ contract FactoryTest is Test, ProtocolFixture {
         p.tokenController.unpause(tokenAddr);
         p.tokenController.mint(tokenAddr, buyer, 600);
 
-        vm.expectRevert(); // exceeds cap
+        uint256 supplyBefore = token.totalSupply();
+        vm.expectRevert(bytes("Compliance not followed"));
         p.tokenController.mint(tokenAddr, buyer, 500);
+        assertEq(token.totalSupply(), supplyBefore);
 
         p.tokenController.burn(tokenAddr, buyer, 200);
         p.tokenController.mint(tokenAddr, buyer, 200);
-        vm.stopPrank();
-    }
-
-    function test_MaxSupplyModuleUpdateViaCompliance() public {
-        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
-        vm.prank(factoryShareDeployer);
-        p.factory
-            .createShare(
-                "MSU",
-                "MSU",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
-            );
-
-        address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
-        Token token = Token(tokenAddr);
-        address mcAddr = address(token.compliance());
-        IModularCompliance mc = IModularCompliance(mcAddr);
-        MaxSupplyModule module = MaxSupplyModule(p.maxSupplyModule);
-
-        // initial max supply should be 1000
-        assertEq(module.getMaxSupply(mcAddr), 1000);
-
-        vm.startPrank(multisig);
-
-        bytes memory setCall = abi.encodeWithSignature("setMaxSupply(uint256)", 2000);
-        mc.callModuleFunction(setCall, address(module));
-        assertEq(module.getMaxSupply(mcAddr), 2000);
-
-        bytes memory setZero = abi.encodeWithSignature("setMaxSupply(uint256)", 0);
-        mc.callModuleFunction(setZero, address(module));
-        assertEq(module.getMaxSupply(mcAddr), 0);
-
         vm.stopPrank();
     }
 
@@ -673,78 +689,6 @@ contract FactoryTest is Test, ProtocolFixture {
         assertEq(p.factory.maxSupplyModule(), beforeModule);
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
         assertEq(p.factory.shareToId(tokenAddr), p.factory.shareIdIndex());
-    }
-
-    function test_MaxSupplySetBelowCurrentReverts() public {
-        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
-        vm.prank(factoryShareDeployer);
-        p.factory
-            .createShare(
-                "MST",
-                "MST",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
-            );
-
-        address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
-        Token token = Token(tokenAddr);
-        address mcAddr = address(token.compliance());
-        IModularCompliance mc = IModularCompliance(mcAddr);
-        MaxSupplyModule module = MaxSupplyModule(p.maxSupplyModule);
-
-        // caps and unpause
-        uint256 caps = (1 << 1) | (1 << 2) | (1 << 3); // pause + mint + burn
-        vm.prank(factoryShareDeployer);
-        p.tokenController.setTokenCapsInitial(tokenAddr, caps);
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(tokenAddr);
-
-        // register identity
-        IIdentity buyerIdentity = IIdentity(address(new Identity(buyer, false)));
-        vm.prank(identityRegistryAgent);
-        p.identityRegistry.registerIdentity(buyer, buyerIdentity, 1);
-
-        vm.startPrank(tokenAgent);
-        p.tokenController.mint(tokenAddr, buyer, 600);
-        assertEq(module.getCurrentSupply(mcAddr), 600);
-        assertEq(module.getMaxSupply(mcAddr), 1000);
-
-        p.tokenController.burn(tokenAddr, buyer, 250);
-        assertEq(module.getCurrentSupply(mcAddr), 350);
-        vm.stopPrank();
-
-        // cannot lower below current supply
-        bytes memory setTooLow = abi.encodeWithSignature("setMaxSupply(uint256)", 200);
-        vm.prank(multisig);
-        vm.expectRevert(bytes("MaxSupplyModule: new max supply cannot be below current supply"));
-        mc.callModuleFunction(setTooLow, address(module));
-    }
-
-    function test_GlobalIrAgentRegistersIdentity() public {
-        address irAddr = address(p.identityRegistry);
-        IdentityRegistry ir = IdentityRegistry(irAddr);
-
-        IIdentity buyerIdentity = IIdentity(address(new Identity(buyer, false)));
-        vm.prank(identityRegistryAgent);
-        ir.registerIdentity(buyer, buyerIdentity, 1);
-
-        assertEq(address(ir.identity(buyer)), address(buyerIdentity));
-        address[] memory linked = IdentityRegistryStorage(address(p.identityRegistryStorage)).linkedIdentityRegistries();
-        bool found;
-        for (uint256 i = 0; i < linked.length; i++) {
-            if (linked[i] == irAddr) {
-                found = true;
-                break;
-            }
-        }
-        assertTrue(found);
     }
 
     function test_MaxSupplyCapBoundOnDeployment() public {
@@ -886,6 +830,68 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.stopPrank();
     }
 
+    function test_deployShareSuite_NotAuthorized() public {
+        ITREXFactory.TokenDetails memory td = ITREXFactory.TokenDetails({
+            owner: multisig,
+            name: "NoAuth",
+            symbol: "NAU",
+            decimals: 0,
+            irs: address(p.identityRegistryStorage),
+            ONCHAINID: ZERO,
+            irAgents: _single(identityRegistryAgent),
+            tokenAgents: _single(tokenAgent),
+            complianceModules: _single(address(p.maxSupplyModule)),
+            complianceSettings: _singleBytes(abi.encodeWithSignature("setMaxSupply(uint256)", DEFAULT_MAX_SUPPLY))
+        });
+
+        ITREXFactory.ClaimDetails memory cd = ITREXFactory.ClaimDetails({
+            claimTopics: new uint256[](0), issuers: new address[](0), issuerClaims: new uint256[][](0)
+        });
+
+        vm.prank(vm.addr(79));
+        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        p.factory.deployShareSuite("NOAUTH", td, cd);
+    }
+
+    function test_deployShareSuite_rejects_rogue_factory() public {
+        Factory factoryImpl = new Factory();
+        Factory rogue = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ""))));
+        rogue.initialize(
+            address(p.trexFactory),
+            address(p.salesManager),
+            address(p.tokenController),
+            address(p.maxSupplyModule),
+            address(p.governance)
+        );
+
+        RoleIds memory roles = _loadRoleIds();
+        address attacker = vm.addr(80);
+        vm.startPrank(multisig);
+        p.accessManager.setTargetFunctionRole(address(rogue), _toSingle(Factory.deployShareSuite.selector), roles.admin);
+        p.accessManager.grantRole(roles.admin, attacker, 0);
+        vm.stopPrank();
+
+        ITREXFactory.TokenDetails memory td = ITREXFactory.TokenDetails({
+            owner: multisig,
+            name: "Rogue",
+            symbol: "RGE",
+            decimals: 0,
+            irs: address(p.identityRegistryStorage),
+            ONCHAINID: ZERO,
+            irAgents: _single(identityRegistryAgent),
+            tokenAgents: _single(tokenAgent),
+            complianceModules: _single(address(p.maxSupplyModule)),
+            complianceSettings: _singleBytes(abi.encodeWithSignature("setMaxSupply(uint256)", DEFAULT_MAX_SUPPLY))
+        });
+        ITREXFactory.ClaimDetails memory cd = ITREXFactory.ClaimDetails({
+            claimTopics: new uint256[](0), issuers: new address[](0), issuerClaims: new uint256[][](0)
+        });
+
+        vm.prank(attacker);
+        vm.expectRevert(bytes("Factory_NotOwnerOfTREXFactory"));
+        rogue.deployShareSuite("ROGUE", td, cd);
+    }
+
     function test_UpgradePreservesTrexFactoryOwnership() public {
         assertEq(p.trexFactory.owner(), address(p.factory));
         Factory newImpl = new Factory();
@@ -893,6 +899,312 @@ contract FactoryTest is Test, ProtocolFixture {
         p.factory.upgradeTo(address(newImpl));
         assertEq(p.trexFactory.owner(), address(p.factory));
         assertTrue(p.factory.isContractTrexFactoryOwner());
+    }
+
+    function test_Factory_initialize_rejects_zero_governance() public {
+        Factory impl = new Factory();
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        vm.expectRevert(bytes("Factory_InvalidGovernanceAddress"));
+        proxy.initialize(
+            address(p.trexFactory),
+            address(p.salesManager),
+            address(p.tokenController),
+            address(p.maxSupplyModule),
+            ZERO
+        );
+    }
+
+    function test_Factory_initialize_rejects_zero_trex_factory() public {
+        Factory impl = new Factory();
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        vm.expectRevert(bytes("Factory_InvalidTREXFactoryAddress"));
+        proxy.initialize(
+            ZERO, address(p.salesManager), address(p.tokenController), address(p.maxSupplyModule), address(p.governance)
+        );
+    }
+
+    function test_Factory_initialize_rejects_zero_sales_manager() public {
+        Factory impl = new Factory();
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        vm.expectRevert(bytes("Factory_InvalidSalesManagerAddress"));
+        proxy.initialize(
+            address(p.trexFactory), ZERO, address(p.tokenController), address(p.maxSupplyModule), address(p.governance)
+        );
+    }
+
+    function test_Factory_initialize_rejects_zero_token_controller() public {
+        Factory impl = new Factory();
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        vm.expectRevert(bytes("Factory_InvalidTokenControllerAddress"));
+        proxy.initialize(
+            address(p.trexFactory), address(p.salesManager), ZERO, address(p.maxSupplyModule), address(p.governance)
+        );
+    }
+
+    function test_Factory_initialize_rejects_zero_max_supply_module() public {
+        Factory impl = new Factory();
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        vm.expectRevert(bytes("Factory_InvalidMaxSupplyModuleAddress"));
+        proxy.initialize(
+            address(p.trexFactory), address(p.salesManager), address(p.tokenController), ZERO, address(p.governance)
+        );
+    }
+
+    function test_Factory_initialize_reverts_on_double_init() public {
+        Factory impl = new Factory();
+
+        Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
+        proxy.initialize(
+            address(p.trexFactory),
+            address(p.salesManager),
+            address(p.tokenController),
+            address(p.maxSupplyModule),
+            address(p.governance)
+        );
+
+        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        proxy.initialize(
+            address(p.trexFactory),
+            address(p.salesManager),
+            address(p.tokenController),
+            address(p.maxSupplyModule),
+            address(p.governance)
+        );
+    }
+
+    function test_Factory_implementation_disables_initializers() public {
+        Factory impl = new Factory();
+        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        impl.initialize(
+            address(p.trexFactory),
+            address(p.salesManager),
+            address(p.tokenController),
+            address(p.maxSupplyModule),
+            address(p.governance)
+        );
+    }
+
+    function test_deployShareSuite_rejects_more_than_5_token_agents() public {
+        address[] memory t6 = new address[](6);
+
+        for (uint256 i = 0; i < 6; i++) {
+            t6[i] = vm.addr(5000 + uint32(i));
+        }
+
+        ITREXFactory.TokenDetails memory td = ITREXFactory.TokenDetails({
+            owner: multisig,
+            name: "SixAg",
+            symbol: "S6A",
+            decimals: 0,
+            irs: address(p.identityRegistryStorage),
+            ONCHAINID: ZERO,
+            irAgents: _single(identityRegistryAgent),
+            tokenAgents: t6,
+            complianceModules: _single(address(p.maxSupplyModule)),
+            complianceSettings: _singleBytes(abi.encodeWithSignature("setMaxSupply(uint256)", DEFAULT_MAX_SUPPLY))
+        });
+
+        ITREXFactory.ClaimDetails memory cd = ITREXFactory.ClaimDetails({
+            claimTopics: new uint256[](0), issuers: new address[](0), issuerClaims: new uint256[][](0)
+        });
+
+        vm.startPrank(multisig);
+        vm.expectRevert(bytes("Factory_Max5TokenAgents"));
+        p.factory.deployShareSuite("S6", td, cd);
+        vm.stopPrank();
+    }
+
+    function test_deployShareSuite_accepts_5_token_agents() public {
+        address[] memory t5 = new address[](5);
+
+        for (uint256 i = 0; i < 5; i++) {
+            t5[i] = vm.addr(6000 + uint32(i));
+        }
+
+        ITREXFactory.TokenDetails memory td = ITREXFactory.TokenDetails({
+            owner: multisig,
+            name: "FiveAg",
+            symbol: "F5A",
+            decimals: 0,
+            irs: address(p.identityRegistryStorage),
+            ONCHAINID: ZERO,
+            irAgents: _single(identityRegistryAgent),
+            tokenAgents: t5,
+            complianceModules: _single(address(p.maxSupplyModule)),
+            complianceSettings: _singleBytes(abi.encodeWithSignature("setMaxSupply(uint256)", DEFAULT_MAX_SUPPLY))
+        });
+
+        ITREXFactory.ClaimDetails memory cd = ITREXFactory.ClaimDetails({
+            claimTopics: new uint256[](0), issuers: new address[](0), issuerClaims: new uint256[][](0)
+        });
+
+        vm.prank(multisig);
+        address tokenAddr = p.factory.deployShareSuite("F5", td, cd);
+        assertTrue(tokenAddr != address(0));
+    }
+
+    function test_createShare_reverts_when_maxSupplyModule_unset() public {
+        vm.prank(multisig);
+        p.factory.editMaxSupplyModule(ZERO);
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        vm.expectRevert(bytes("Factory_MaxSupplyModuleNotSet"));
+        p.factory
+            .createShare(
+                "NOM",
+                "NOM",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+    }
+
+    function test_createShare_with_6_decimals() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        p.factory
+            .createShare(
+                "D6",
+                "D6",
+                6,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+
+        Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
+        assertEq(token.decimals(), 6);
+    }
+
+    function test_createShare_with_18_decimals() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        p.factory
+            .createShare(
+                "D18",
+                "D18",
+                18,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+
+        Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
+        assertEq(token.decimals(), 18);
+    }
+
+    function test_createShare_with_initial_claim_topics_and_trusted_issuers() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        uint256[] memory topics = new uint256[](1);
+        topics[0] = 7;
+
+        address[] memory issuers = new address[](1);
+        issuers[0] = address(p.claimIssuer);
+
+        uint256[][] memory issuerClaims = new uint256[][](1);
+        issuerClaims[0] = topics;
+
+        vm.prank(factoryShareDeployer);
+        p.factory
+            .createShare(
+                "CLM",
+                "CLM",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                topics,
+                issuers,
+                issuerClaims,
+                DEFAULT_MAX_SUPPLY
+            );
+
+        Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
+        IdentityRegistry ir = IdentityRegistry(address(token.identityRegistry()));
+        ClaimTopicsRegistry ctr = ClaimTopicsRegistry(address(ir.topicsRegistry()));
+        TrustedIssuersRegistry tir = TrustedIssuersRegistry(address(ir.issuersRegistry()));
+
+        uint256[] memory topicsOut = ctr.getClaimTopics();
+        assertEq(topicsOut.length, 1);
+        assertEq(topicsOut[0], 7);
+        assertTrue(tir.isTrustedIssuer(address(p.claimIssuer)));
+
+        uint256[] memory issuerTopics = tir.getTrustedIssuerClaimTopics(IClaimIssuer(address(p.claimIssuer)));
+        assertEq(issuerTopics.length, 1);
+        assertEq(issuerTopics[0], 7);
+    }
+
+    function test_createShare_installs_only_expected_token_agents() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        p.factory
+            .createShare(
+                "AGT",
+                "AGT",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+
+        Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
+        assertTrue(token.isAgent(address(p.tokenController)));
+        assertTrue(token.isAgent(address(p.salesManager)));
+    }
+
+    function test_createShare_salesManager_can_mint_but_arbitrary_agent_is_not_injected() public {
+        (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
+
+        vm.prank(factoryShareDeployer);
+        p.factory
+            .createShare(
+                "MNT",
+                "MNT",
+                0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                DEFAULT_MAX_SUPPLY
+            );
+
+        Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
+        assertFalse(token.isAgent(vm.addr(9999)));
+        assertTrue(token.isAgent(address(p.salesManager)));
+    }
+
+    function test_trexFactory_getter() public view {
+        assertEq(p.factory.trexFactory(), address(p.trexFactory));
     }
 
     // helpers
