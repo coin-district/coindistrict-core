@@ -61,8 +61,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         view
         override
     {
-        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
-        require(governance.hasRole(msg.sender, address(this), selector), "SalesManager_NotAuthorized");
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "SalesManager_NotAuthorized");
     }
 
     modifier whenNotPaused() {

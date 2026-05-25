@@ -57,8 +57,7 @@ contract TokenController is ITokenController, Initializable, UUPSUpgradeable {
         view
         override
     {
-        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
-        require(governance.hasRole(msg.sender, address(this), selector), "TokenController_NotAuthorized");
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "TokenController_NotAuthorized");
     }
 
     /**
