@@ -45,7 +45,6 @@
       "updateSaleFundsRecipient": "FUNDS_ADMIN_ROLE",
       "setAllowedPaymentToken": "SALES_CONFIG_ROLE",
       "setPaymentTokenOracle": "SALES_CONFIG_ROLE",
-      "setMaxOracleDelaySeconds": "SALES_CONFIG_ROLE",
       "setEmergencyPause": "SALES_OPERATOR_ROLE",
       "unsetEmergencyPause": "SALES_OPERATOR_ROLE",
       "createSale": "SALES_OPERATOR_ROLE",

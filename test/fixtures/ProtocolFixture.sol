@@ -311,8 +311,8 @@ abstract contract ProtocolFixture is Test {
     }
 
     function _defaultPermissions(Protocol memory p) internal view returns (Permission[] memory perms) {
-        // 5 (Factory) + 18 (SalesManager) + 11 (TokenController) = 34
-        perms = new Permission[](34);
+        // 5 (Factory) + 17 (SalesManager) + 11 (TokenController) = 33
+        perms = new Permission[](33);
 
         RoleIds memory roles = _loadRoleIds();
 
@@ -362,11 +362,6 @@ abstract contract ProtocolFixture is Test {
         perms[i++] = Permission({
             target: address(p.salesManager),
             selector: SalesManager.setPaymentTokenOracle.selector,
-            roleId: roles.salesConfig
-        });
-        perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.setMaxOracleDelaySeconds.selector,
             roleId: roles.salesConfig
         });
         perms[i++] = Permission({

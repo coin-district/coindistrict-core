@@ -24,9 +24,10 @@ import {ISalesManager} from "./ISalesManager.sol";
 contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
-    /// Constants
+    /// @dev Decimal precision used for sale USD prices and normalized oracle answers.
     uint8 private constant PRICE_USD_DECIMALS = 8;
-    uint256 private constant DEFAULT_MAX_ORACLE_DELAY_SECONDS = 2 hours;
+    uint256 private constant MIN_ORACLE_DELAY = 60; // seconds
+    uint256 private constant MAX_ORACLE_DELAY = 24 hours;
 
     // Governance interface
     IGovernance public governance;
@@ -42,7 +43,6 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         __ReentrancyGuard_init();
         require(governance_ != address(0), "SalesManager_InvalidGovernance");
         governance = IGovernance(governance_);
-        maxOracleDelaySeconds = DEFAULT_MAX_ORACLE_DELAY_SECONDS;
     }
 
     modifier onlyGov() {
@@ -80,8 +80,8 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     // Chainlink oracle mapping: payment token => USD aggregator
     mapping(address => address) public paymentTokenToUsdAggregator;
 
-    // Maximum allowed delay for oracle price updates (in seconds)
-    uint256 public maxOracleDelaySeconds;
+    // Deprecated: retained to preserve storage layout for existing proxies.
+    uint256 private __deprecatedMaxOracleDelaySeconds;
 
     // Global emergency pause flag (blocks all buy() and fulfillFiatOrder() operations)
     bool public emergencyPaused;
@@ -90,6 +90,11 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     mapping(uint256 => uint256) public saleIdToSold; // total sold in token smallest units
     mapping(bytes32 => bool) public fiatOrderReferenceFulfilled;
     mapping(uint256 => Sale) internal _sales;
+
+    // Per-payment-token max accepted oracle staleness (seconds)
+    mapping(address => uint256) public paymentTokenMaxDelay;
+    // Per-payment-token max accepted normalized price (1e8). Buy reverts if feed price exceeds this.
+    mapping(address => uint256) public paymentTokenMaxPrice1e8;
 
     /**
      * @dev see {ISalesManager.createSale}
@@ -218,8 +223,10 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         uint256 usdCost = _calculateUsdCost(_amount, s.priceUsdPerShare, s.shareDecimals);
         require(usdCost > 0, "Sale_ZeroCost");
 
-        // Get token/USD price from Chainlink (returns price in 1e8)
-        uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(aggregator);
+        // Get token/USD price from Chainlink (returns price in 1e8); applies per-feed staleness + ceiling
+        uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(
+            aggregator, paymentTokenMaxDelay[_paymentToken], paymentTokenMaxPrice1e8[_paymentToken]
+        );
 
         // Get payment token decimals
         uint8 tokenDecimals = IERC20Metadata(_paymentToken).decimals();
@@ -422,19 +429,28 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     /**
      * @dev see {ISalesManager.setPaymentTokenOracle}
      */
-    function setPaymentTokenOracle(address paymentToken, address aggregator) external onlyGov {
-        paymentTokenToUsdAggregator[paymentToken] = aggregator;
-        emit PaymentTokenOracleSet(paymentToken, aggregator);
-    }
+    function setPaymentTokenOracle(address paymentToken, address aggregator, uint256 maxDelay, uint256 maxPrice1e8)
+        external
+        onlyGov
+    {
+        if (aggregator == address(0)) {
+            paymentTokenToUsdAggregator[paymentToken] = address(0);
+            paymentTokenMaxDelay[paymentToken] = 0;
+            paymentTokenMaxPrice1e8[paymentToken] = 0;
+            emit PaymentTokenOracleSet(paymentToken, address(0), 0, 0);
+            return;
+        }
+        require(maxDelay >= MIN_ORACLE_DELAY && maxDelay <= MAX_ORACLE_DELAY, "Sale_InvalidOracleDelay");
+        require(maxPrice1e8 > 0, "Sale_InvalidMaxPrice");
 
-    /**
-     * @dev see {ISalesManager.setMaxOracleDelaySeconds}
-     */
-    function setMaxOracleDelaySeconds(uint256 seconds_) external onlyGov {
-        require(seconds_ >= 5 minutes && seconds_ <= 24 hours, "Sale_InvalidOracleDelay");
-        uint256 oldDelay = maxOracleDelaySeconds;
-        maxOracleDelaySeconds = seconds_;
-        emit MaxOracleDelayUpdated(oldDelay, seconds_);
+        // Probe the feed so a broken aggregator can't be configured
+        (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(aggregator).latestRoundData();
+        require(answer > 0 && updatedAt > 0, "Sale_InvalidOracle");
+
+        paymentTokenToUsdAggregator[paymentToken] = aggregator;
+        paymentTokenMaxDelay[paymentToken] = maxDelay;
+        paymentTokenMaxPrice1e8[paymentToken] = maxPrice1e8;
+        emit PaymentTokenOracleSet(paymentToken, aggregator, maxDelay, maxPrice1e8);
     }
 
     /**
@@ -475,9 +491,15 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     /**
      * @dev Get token/USD price from Chainlink aggregator, normalized to 1e8
      * @param aggregator Chainlink aggregator address
+     * @param maxDelay Max accepted staleness (seconds) for this feed
+     * @param maxPrice1e8 Max accepted normalized price (1e8) for this feed
      * @return price Token/USD price in 1e8 units
      */
-    function _getTokenUsdPrice1e8(address aggregator) internal view returns (uint256 price) {
+    function _getTokenUsdPrice1e8(address aggregator, uint256 maxDelay, uint256 maxPrice1e8)
+        internal
+        view
+        returns (uint256 price)
+    {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
 
@@ -485,7 +507,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(answer > 0, "Sale_InvalidPrice");
         require(updatedAt > 0, "Sale_PriceNotUpdated");
         require(answeredInRound >= roundId, "Sale_StaleRound");
-        require(block.timestamp - updatedAt <= maxOracleDelaySeconds, "Sale_StalePrice");
+        require(block.timestamp - updatedAt <= maxDelay, "Sale_StalePrice");
 
         uint8 aggregatorDecimals = priceFeed.decimals();
 
@@ -493,16 +515,17 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 priceRaw = uint256(answer);
 
-        // Scale to 1e8 if needed
-        if (aggregatorDecimals == 8) {
-            return priceRaw;
-        } else if (aggregatorDecimals > 8) {
-            // Scale down
-            return priceRaw / (10 ** uint256(aggregatorDecimals - 8));
+        // Scale the feed answer to the protocol's USD price precision if needed.
+        if (aggregatorDecimals == PRICE_USD_DECIMALS) {
+            price = priceRaw;
+        } else if (aggregatorDecimals > PRICE_USD_DECIMALS) {
+            price = priceRaw / (10 ** uint256(aggregatorDecimals - PRICE_USD_DECIMALS));
         } else {
-            // Scale up
-            return priceRaw * (10 ** uint256(8 - aggregatorDecimals));
+            price = priceRaw * (10 ** uint256(PRICE_USD_DECIMALS - aggregatorDecimals));
         }
+
+        require(price > 0, "Sale_InvalidPrice");
+        require(price <= maxPrice1e8, "Sale_PriceAboveCeiling");
     }
 
     /**

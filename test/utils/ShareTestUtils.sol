@@ -12,8 +12,6 @@ library ShareTestUtils {
     function createShare(
         Protocol storage p,
         address multisig,
-        address,
-        /* tokenAgent */
         address identityRegistryAgent,
         string memory name,
         string memory symbol,
@@ -30,6 +28,38 @@ library ShareTestUtils {
                 name,
                 symbol,
                 0,
+                multisig,
+                tokenAgents,
+                irAgents,
+                address(p.identityRegistryStorage),
+                new uint256[](0),
+                new address[](0),
+                new uint256[][](0),
+                maxSupply
+            );
+
+        address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
+        token = Token(tokenAddr);
+    }
+
+    function createShareWithDecimals(
+        Protocol storage p,
+        address multisig,
+        address identityRegistryAgent,
+        string memory name,
+        string memory symbol,
+        uint8 decimals,
+        uint256 maxSupply
+    ) internal returns (Token token) {
+        address[] memory tokenAgents = new address[](0);
+        address[] memory irAgents = new address[](1);
+        irAgents[0] = identityRegistryAgent;
+
+        p.factory
+            .createShare(
+                name,
+                symbol,
+                decimals,
                 multisig,
                 tokenAgents,
                 irAgents,

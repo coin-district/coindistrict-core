@@ -11,12 +11,14 @@ contract MockAggregatorV3 is AggregatorV3Interface {
     uint8 private immutable _DECIMALS;
     int256 private _price;
     uint80 private _roundId;
+    uint80 private _answeredInRound;
     uint256 private _updatedAt;
 
     constructor(uint8 decimals_, int256 initialPrice) {
         _DECIMALS = decimals_;
         _price = initialPrice;
         _roundId = 1;
+        _answeredInRound = 1;
         _updatedAt = block.timestamp;
     }
 
@@ -32,13 +34,14 @@ contract MockAggregatorV3 is AggregatorV3Interface {
         return 1;
     }
 
+    // getRoundData ignores roundId_ and returns current state regardless.
     function getRoundData(uint80 roundId_)
         external
         view
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (roundId_, _price, block.timestamp, _updatedAt, roundId_);
+        return (roundId_, _price, _updatedAt, _updatedAt, _answeredInRound);
     }
 
     function latestRoundData()
@@ -47,7 +50,7 @@ contract MockAggregatorV3 is AggregatorV3Interface {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (_roundId, _price, block.timestamp, _updatedAt, _roundId);
+        return (_roundId, _price, _updatedAt, _updatedAt, _answeredInRound);
     }
 
     /**
@@ -56,7 +59,12 @@ contract MockAggregatorV3 is AggregatorV3Interface {
     function updatePrice(int256 newPrice) external {
         _price = newPrice;
         _roundId++;
+        _answeredInRound = _roundId;
         _updatedAt = block.timestamp;
+    }
+
+    function setAnsweredInRound(uint80 answeredInRound) external {
+        _answeredInRound = answeredInRound;
     }
 
     /**

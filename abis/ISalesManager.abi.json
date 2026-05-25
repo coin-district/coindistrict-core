@@ -258,19 +258,6 @@
   },
   {
     "type": "function",
-    "name": "maxOracleDelaySeconds",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "seconds_",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "pauseSale",
     "inputs": [
       {
@@ -281,6 +268,44 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paymentTokenMaxDelay",
+    "inputs": [
+      {
+        "name": "paymentToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "paymentTokenMaxPrice1e8",
+    "inputs": [
+      {
+        "name": "paymentToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -376,14 +401,8 @@
   },
   {
     "type": "function",
-    "name": "setMaxOracleDelaySeconds",
-    "inputs": [
-      {
-        "name": "seconds_",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "setEmergencyPause",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -400,6 +419,16 @@
         "name": "aggregator",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "maxDelay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPrice1e8",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -591,25 +620,6 @@
   },
   {
     "type": "event",
-    "name": "MaxOracleDelayUpdated",
-    "inputs": [
-      {
-        "name": "oldDelay",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "newDelay",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "PaymentTokenAllowed",
     "inputs": [
       {
@@ -642,6 +652,18 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      },
+      {
+        "name": "maxDelay",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPrice1e8",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

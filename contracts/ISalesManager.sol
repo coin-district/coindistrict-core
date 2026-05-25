@@ -120,12 +120,11 @@ interface ISalesManager {
     /// @notice Emitted when a payment token oracle is set or updated
     /// @param paymentToken The ERC20 token address
     /// @param aggregator The Chainlink aggregator address (address(0) to remove)
-    event PaymentTokenOracleSet(address indexed paymentToken, address aggregator);
-
-    /// @notice Emitted when the maximum oracle delay is updated
-    /// @param oldDelay Previous delay in seconds
-    /// @param newDelay New delay in seconds
-    event MaxOracleDelayUpdated(uint256 oldDelay, uint256 newDelay);
+    /// @param maxDelay Max accepted oracle staleness in seconds (0 when removed)
+    /// @param maxPrice1e8 Max accepted normalized price in 1e8 (0 when removed)
+    event PaymentTokenOracleSet(
+        address indexed paymentToken, address aggregator, uint256 maxDelay, uint256 maxPrice1e8
+    );
 
     /// @notice Emitted when funds are withdrawn to treasury or another recipient
     /// @param token The ERC20 token withdrawn
@@ -307,28 +306,23 @@ interface ISalesManager {
     function withdrawFunds(address[] calldata tokens, address to, uint256[] calldata amounts) external;
 
     /**
-     * @notice Set or update the Chainlink oracle aggregator for a payment token
-     * @dev Set aggregator to address(0) to remove
+     * @notice Set or update the Chainlink oracle aggregator and bounds for a payment token
+     * @dev Set aggregator to address(0) to remove (clears bounds too)
      * @param paymentToken The ERC20 payment token address
      * @param aggregator The Chainlink AggregatorV3Interface address (address(0) to remove)
+     * @param maxDelay Max accepted oracle staleness in seconds, in [60, 86400]
+     * @param maxPrice1e8 Max accepted normalized price (1e8); must be > 0 when aggregator is set
      */
-    function setPaymentTokenOracle(address paymentToken, address aggregator) external;
-
-    /**
-     * @notice Set the maximum allowed delay for oracle price updates
-     * @dev Stale prices beyond this delay will revert purchases
-     * @param seconds_ Maximum delay in seconds
-     */
-    function setMaxOracleDelaySeconds(uint256 seconds_) external;
+    function setPaymentTokenOracle(address paymentToken, address aggregator, uint256 maxDelay, uint256 maxPrice1e8)
+        external;
 
     /**
      * @notice Pause all sales immediately
      * @dev When paused, all buy() and fulfillFiatOrder() operations are blocked
-     * @dev Functions are split to enable different delays for each function
-     * /
-     * function setEmergencyPause() external;
-     *
-     **
+     */
+    function setEmergencyPause() external;
+
+    /**
      * @notice Unpause all sales
      */
     function unsetEmergencyPause() external;
@@ -342,7 +336,9 @@ interface ISalesManager {
     /// @return aggregator The Chainlink aggregator address, or address(0) if not set
     function paymentTokenToUsdAggregator(address paymentToken) external view returns (address aggregator);
 
-    /// @notice Get the maximum allowed oracle delay in seconds
-    /// @return seconds_ Maximum delay in seconds
-    function maxOracleDelaySeconds() external view returns (uint256 seconds_);
+    /// @notice Max accepted oracle staleness (seconds) for a payment token
+    function paymentTokenMaxDelay(address paymentToken) external view returns (uint256);
+
+    /// @notice Max accepted normalized price (1e8) for a payment token
+    function paymentTokenMaxPrice1e8(address paymentToken) external view returns (uint256);
 }
