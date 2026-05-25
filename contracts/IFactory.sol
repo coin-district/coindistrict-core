@@ -106,10 +106,12 @@ interface IFactory {
 
     /**
      * @notice Forward deployment to TREXFactory with a custom salt
-     * @dev Caller must be owner and this contract must own TREXFactory
-     * @dev function automatically adds salesManager as a token agent
+     * @dev Caller must hold PROTOCOL_ADMIN_ROLE and this contract must own TREXFactory.
+     *      Token agents and compliance modules are forwarded exactly as supplied by the caller;
+     *      no agents or modules are injected automatically.
+     *      Intended only for highly trusted custom deployments — use createShare for standard issuance.
      * @param _salt Plain salt string; owner() will be appended internally for uniqueness
-     * @param _tokenDetails Token parameters (see ITREXFactory.TokenDetails), except tokenAgents <= 4 (salesManager is added automatically)
+     * @param _tokenDetails Token parameters (see ITREXFactory.TokenDetails); tokenAgents.length <= 5
      * @param _claimDetails Claim/issuer parameters (see ITREXFactory.ClaimDetails)
      * @return tokenAddr The deployed token address
      */

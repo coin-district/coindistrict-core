@@ -11,6 +11,10 @@ contract AccessManagerMock {
     mapping(uint64 => mapping(address => bool)) public hasRole;
     mapping(address => mapping(bytes4 => uint64)) public targetRole;
 
+    bool private _canCallOverrideActive;
+    bool private _canCallImmediate;
+    uint32 private _canCallDelay;
+
     event RoleGranted(uint64 indexed roleId, address indexed account);
     event RoleRevoked(uint64 indexed roleId, address indexed account);
     event TargetFunctionRoleSet(address indexed target, bytes4 indexed selector, uint64 roleId);
@@ -38,11 +42,24 @@ contract AccessManagerMock {
         emit RoleRevoked(roleId, account);
     }
 
+    function setCanCallReturn(bool immediate, uint32 delay) external {
+        _canCallOverrideActive = true;
+        _canCallImmediate = immediate;
+        _canCallDelay = delay;
+    }
+
+    function clearCanCallReturn() external {
+        _canCallOverrideActive = false;
+    }
+
     function canCall(address caller, address target, bytes4 selector)
         external
         view
         returns (bool immediate, uint32 delay)
     {
+        if (_canCallOverrideActive) {
+            return (_canCallImmediate, _canCallDelay);
+        }
         uint64 roleId = targetRole[target][selector];
         return (hasRole[roleId][caller], 0);
     }
