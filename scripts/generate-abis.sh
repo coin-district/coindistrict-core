@@ -4,8 +4,16 @@
 
 set -e
 
-echo "🔨 Building contracts..."
-forge build
+echo "🔨 Building package contract artifacts..."
+forge build --skip test --cache-path cache/package-build \
+  contracts \
+  lib/erc-3643/contracts/token/Token.sol \
+  lib/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol \
+  lib/erc-3643/contracts/registry/implementation/IdentityRegistry.sol \
+  lib/solidity/contracts/factory/IdFactory.sol \
+  lib/solidity/contracts/gateway/Gateway.sol \
+  lib/solidity/contracts/ClaimIssuer.sol \
+  lib/solidity/contracts/Identity.sol
 
 # Create abis directory
 mkdir -p abis
@@ -73,7 +81,6 @@ else
     echo "  - ${contract}"
   done
   echo ""
-  echo "Make sure to run 'forge build' first if contracts are missing."
+  echo "Make sure the package artifact build roots include missing contracts."
 fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-

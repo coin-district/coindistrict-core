@@ -8,11 +8,11 @@
   "description": "Foundry-based ERC-3643 smart contracts for Coin District",
   "license": "GPL-3.0",
   "scripts": {
-    "build": "forge build && bash scripts/generate-abis.sh && bash scripts/export-contracts-source.sh",
+    "build": "bash scripts/generate-abis.sh && bash scripts/export-contracts-source.sh",
     "build:abis": "bash scripts/generate-abis.sh",
     "export:contracts": "bash scripts/export-contracts-source.sh",
     "prepublishOnly": "pnpm build",
-    "test": "forge clean && forge test",
+    "test": "forge test",
     "format": "forge fmt && prettier --write \"**/*.{json,md,yaml,yml}\"",
     "lint": "forge lint",
     "prepare": "husky"
