@@ -39,11 +39,12 @@ All proxies = UUPS upgradeable. Governance + MaxSupplyModule = NOT upgradeable (
 - **Residual risk:** Admin-governance risk only — a compromised `PROTOCOL_ADMIN_ROLE` holder can deploy unconstrained tokens. Mitigated by multisig governance.
 - **Regression test:** `test/RoleMatrix.t.sol` — `test_shareDeployer_cannot_deploy_custom_share_suite`.
 
-### M3 — `_authorizeUpgrade` selector mismatch breaks delayed `upgradeToAndCall`
+### M3 — `_authorizeUpgrade` selector mismatch breaks delayed `upgradeToAndCall` — RESOLVED
 - **Where:** `SalesManager.sol:64`, `TokenController.sol:60`, `Factory.sol:90`
-- **Risk:** Auth hardcodes `upgradeTo(address)` selector. Delayed AccessManager path scheduling `upgradeToAndCall` → execution-context selector mismatch → authorized upgrade reverts. Fails closed (not a hole) but config foot-gun: permissions must target `upgradeTo` selector only.
-- **Fix:** Use `msg.sig` in `_authorizeUpgrade`, or document "configure role on `upgradeTo(address)` only; use plain `upgradeTo` for delayed upgrades."
-- **Upgradeable:** Yes — logic-only. Bootstrap: deploy this fix via plain `upgradeTo`, NOT `upgradeToAndCall`.
+- **Risk:** Auth hardcoded `upgradeTo(address)` selector. Delayed AccessManager path scheduling `upgradeToAndCall` → execution-context selector mismatch → authorized upgrade reverts. Fails closed (not a hole) but config foot-gun: permissions had to target `upgradeTo` selector only.
+- **Resolution:** All three `_authorizeUpgrade` overrides now authorize `msg.sig` instead of a hardcoded selector. Regression tests in `test/GovernanceDelay.t.sol` cover delayed `upgradeToAndCall` for Factory, SalesManager, and TokenController via real `AccessManager.schedule/execute`.
+- **Bootstrap:** Deploy this fix to live proxies via plain `upgradeTo`, NOT `upgradeToAndCall` — currently deployed old logic still authorizes only the `upgradeTo(address)` selector until replaced. After the fix is live, delayed `upgradeToAndCall` is supported.
+- **Upgradeable:** Yes — logic-only.
 
 ---
 

@@ -87,8 +87,7 @@ contract Factory is IFactory, UUPSUpgradeable {
         view
         override
     {
-        bytes4 selector = bytes4(keccak256("upgradeTo(address)"));
-        require(governance.hasRole(msg.sender, address(this), selector), "Factory_NotAuthorized");
+        require(governance.hasRole(msg.sender, address(this), msg.sig), "Factory_NotAuthorized");
     }
 
     /**
