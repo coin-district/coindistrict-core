@@ -237,13 +237,17 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         // Slippage protection
         require(tokenAmount <= _maxPayment, "Sale_MaxPaymentExceeded");
 
-        // Pull payment token from buyer to this contract first. If anything reverts later, the whole tx reverts.
-        // Check balance before transfer to detect fee-on-transfer tokens
+        // EFFECTS: update accounting before any external interaction (CEI; defense-in-depth atop nonReentrant)
+        s.remainingSupply -= _amount;
+        unchecked {
+            saleIdToSold[_saleId] += _amount;
+        }
+
+        // INTERACTIONS
+        // Pull payment token from buyer; detect fee-on-transfer via the balance delta
         uint256 balanceBefore = IERC20(_paymentToken).balanceOf(address(this));
         IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), tokenAmount);
         uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
-
-        // Verify received amount matches expected (protects against fee-on-transfer tokens)
         require(balanceAfter - balanceBefore == tokenAmount, "Sale_TransferAmountMismatch");
 
         // Mint shares to recipient. Requires this contract to be an Agent on the share.
@@ -251,12 +255,6 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
 
         // Forward funds to recipient treasury
         IERC20(_paymentToken).safeTransfer(s.fundsRecipient, tokenAmount);
-
-        // Update accounting
-        s.remainingSupply -= _amount;
-        unchecked {
-            saleIdToSold[_saleId] += _amount;
-        }
 
         emit SharePurchase(_saleId, msg.sender, _to, _paymentToken, _amount, tokenAmount);
     }
