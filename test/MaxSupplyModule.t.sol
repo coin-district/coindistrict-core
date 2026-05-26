@@ -32,18 +32,7 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
         identityRegistryAgent = acc.identityRegistryAgent;
     }
 
-    function _createShareWithMaxSupply(uint256 maxSupply)
-        internal
-        returns (Token token, address compliance, MaxSupplyModule module)
-    {
-        vm.prank(factoryShareDeployer);
-        token = p.createShare(multisig, identityRegistryAgent, "MSM", "MSM", maxSupply);
-
-        compliance = address(token.compliance());
-        module = MaxSupplyModule(p.maxSupplyModule);
-    }
-
-    // ─── setMaxSupply ──────────────────────────────────────────────────────────
+    // setMaxSupply
 
     function test_setMaxSupply_only_compliance() public {
         _createShareWithMaxSupply(1000);
@@ -143,31 +132,18 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
         mc.callModuleFunction(setTooLow, address(module));
     }
 
-    // ─── moduleCheck ───────────────────────────────────────────────────────────
+    // moduleTransferAction
 
-    function test_moduleCheck_returns_false_when_mint_exceeds_cap() public {
-        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
-
-        vm.prank(compliance);
-        module.moduleMintAction(address(0), 90);
-        assertEq(module.getCurrentSupply(compliance), 90);
-
-        // Check with value 20 where remaining cap is 10 → should return false
-        // moduleCheck(from, to, value, compliance) — only blocks minting (from == address(0))
-        assertFalse(module.moduleCheck(address(0), address(0), 20, compliance));
+    function test_forceTransfer_does_not_change_current_supply() public {
+        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(1000);
+        vm.startPrank(compliance);
+        module.moduleMintAction(address(0), 100);
+        module.moduleTransferAction(address(0x1), address(0x2), 50);
+        vm.stopPrank();
+        assertEq(module.getCurrentSupply(compliance), 100);
     }
 
-    function test_moduleCheck_returns_true_for_non_mint() public {
-        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
-
-        vm.prank(compliance);
-        module.moduleMintAction(address(0), 90);
-
-        // moduleCheck with from != address(0) means it's a transfer, not mint → always true
-        assertTrue(module.moduleCheck(address(0x1), address(0x2), 1_000_000, compliance));
-    }
-
-    // ─── moduleMintAction / moduleBurnAction ───────────────────────────────────
+    // moduleMintAction
 
     function test_moduleMintAction_increments_supply() public {
         (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(1000);
@@ -177,6 +153,8 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
 
         assertEq(module.getCurrentSupply(compliance), 50);
     }
+
+    // moduleBurnAction
 
     function test_moduleBurnAction_decrements_supply() public {
         (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(1000);
@@ -202,15 +180,6 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
         assertEq(module.getCurrentSupply(compliance), 10);
     }
 
-    function test_moduleCheck_returns_false_after_accounted_supply_reaches_cap() public {
-        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
-        vm.startPrank(compliance);
-        module.moduleMintAction(address(0), 100);
-        vm.stopPrank();
-        assertFalse(module.moduleCheck(address(0), address(0), 1, compliance));
-        assertEq(module.getCurrentSupply(compliance), 100);
-    }
-
     function test_module_actions_restore_supply_after_burn_and_remint() public {
         (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
         vm.startPrank(compliance);
@@ -218,6 +187,39 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
         module.moduleBurnAction(address(0), 40);
         module.moduleMintAction(address(0), 40);
         vm.stopPrank();
+        assertEq(module.getCurrentSupply(compliance), 100);
+    }
+
+    // moduleCheck
+
+    function test_moduleCheck_returns_false_when_mint_exceeds_cap() public {
+        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
+
+        vm.prank(compliance);
+        module.moduleMintAction(address(0), 90);
+        assertEq(module.getCurrentSupply(compliance), 90);
+
+        // Check with value 20 where remaining cap is 10 → should return false
+        // moduleCheck(from, to, value, compliance) — only blocks minting (from == address(0))
+        assertFalse(module.moduleCheck(address(0), address(0), 20, compliance));
+    }
+
+    function test_moduleCheck_returns_true_for_non_mint() public {
+        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
+
+        vm.prank(compliance);
+        module.moduleMintAction(address(0), 90);
+
+        // moduleCheck with from != address(0) means it's a transfer, not mint → always true
+        assertTrue(module.moduleCheck(address(0x1), address(0x2), 1_000_000, compliance));
+    }
+
+    function test_moduleCheck_returns_false_after_accounted_supply_reaches_cap() public {
+        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(100);
+        vm.startPrank(compliance);
+        module.moduleMintAction(address(0), 100);
+        vm.stopPrank();
+        assertFalse(module.moduleCheck(address(0), address(0), 1, compliance));
         assertEq(module.getCurrentSupply(compliance), 100);
     }
 
@@ -229,20 +231,24 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
         assertEq(module.getCurrentSupply(compliance), 100);
     }
 
-    function test_forceTransfer_does_not_change_current_supply() public {
-        (, address compliance, MaxSupplyModule module) = _createShareWithMaxSupply(1000);
-        vm.startPrank(compliance);
-        module.moduleMintAction(address(0), 100);
-        module.moduleTransferAction(address(0x1), address(0x2), 50);
-        vm.stopPrank();
-        assertEq(module.getCurrentSupply(compliance), 100);
-    }
-
-    // ─── static metadata ───────────────────────────────────────────────────────
+    // Metadata / views
 
     function test_static_metadata() public view {
         assertEq(p.maxSupplyModule.name(), "MaxSupplyModule");
         assertTrue(p.maxSupplyModule.isPlugAndPlay());
         assertTrue(p.maxSupplyModule.canComplianceBind(address(0)));
+    }
+
+    // Helpers
+
+    function _createShareWithMaxSupply(uint256 maxSupply)
+        internal
+        returns (Token token, address compliance, MaxSupplyModule module)
+    {
+        vm.prank(factoryShareDeployer);
+        token = p.createShare(multisig, identityRegistryAgent, "MSM", "MSM", maxSupply);
+
+        compliance = address(token.compliance());
+        module = MaxSupplyModule(p.maxSupplyModule);
     }
 }

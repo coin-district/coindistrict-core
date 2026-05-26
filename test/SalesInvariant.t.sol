@@ -70,6 +70,8 @@ contract SalesInvariantHandler is ProtocolFixture {
         vm.warp(saleStart + 1);
     }
 
+    // Sales operations
+
     function buy(uint256 amount) external {
         if (emergencyPaused) return;
         uint256 remaining = protocol.salesManager.getSaleRemainingSupply(saleId);
@@ -94,11 +96,6 @@ contract SalesInvariantHandler is ProtocolFixture {
             assertEq(token.balanceOf(buyer), buyerBefore);
             assertEq(stable.balanceOf(acc.multisig), treasuryBefore);
         }
-    }
-
-    function updateOraclePrice(uint256 priceSeed) external {
-        int256 newPrice = int256(bound(priceSeed, 1e6, 1e11));
-        oracle.updatePrice(newPrice);
     }
 
     function buyWithZeroAllowanceReverts(uint256 amount) external {
@@ -153,6 +150,29 @@ contract SalesInvariantHandler is ProtocolFixture {
         } catch {}
     }
 
+    // Oracle mutation support
+
+    function updateOraclePrice(uint256 priceSeed) external {
+        int256 newPrice = int256(bound(priceSeed, 1e6, 1e11));
+        oracle.updatePrice(newPrice);
+    }
+
+    // Emergency pause operations and negative paths
+
+    function pauseEmergency() external {
+        if (emergencyPaused) return;
+        vm.prank(acc.salesManagerSalesOperator);
+        protocol.salesManager.setEmergencyPause();
+        emergencyPaused = true;
+    }
+
+    function unpauseEmergency() external {
+        if (!emergencyPaused) return;
+        vm.prank(acc.salesManagerSalesOperator);
+        protocol.salesManager.unsetEmergencyPause();
+        emergencyPaused = false;
+    }
+
     function buyWhileEmergencyPausedReverts(uint256 amount) external {
         if (!emergencyPaused) return;
         uint256 remaining = protocol.salesManager.getSaleRemainingSupply(saleId);
@@ -188,26 +208,14 @@ contract SalesInvariantHandler is ProtocolFixture {
         }
     }
 
-    function pauseEmergency() external {
-        if (emergencyPaused) return;
-        vm.prank(acc.salesManagerSalesOperator);
-        protocol.salesManager.setEmergencyPause();
-        emergencyPaused = true;
-    }
+    // Observation getters
 
-    function unpauseEmergency() external {
-        if (!emergencyPaused) return;
-        vm.prank(acc.salesManagerSalesOperator);
-        protocol.salesManager.unsetEmergencyPause();
-        emergencyPaused = false;
+    function getSaleTotalSupply() external view returns (uint256) {
+        return protocol.salesManager.getSaleTotalSupply(saleId);
     }
 
     function getSaleRemaining() external view returns (uint256) {
         return protocol.salesManager.getSaleRemainingSupply(saleId);
-    }
-
-    function getSaleTotalSupply() external view returns (uint256) {
-        return protocol.salesManager.getSaleTotalSupply(saleId);
     }
 
     function getSaleSoldOnChain() external view returns (uint256) {

@@ -17,6 +17,8 @@ import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 contract SecondaryTest is SecondaryTestHelpers {
     using ShareTestUtils for Protocol;
 
+    // Transfers and recipient verification
+
     function test_open_token_transfer_and_transferFrom() public {
         vm.prank(factoryShareDeployer);
         Token token = p.createShare(multisig, identityRegistryAgent, "OPEN", "OPN", DEFAULT_MAX_SUPPLY);
@@ -86,91 +88,6 @@ contract SecondaryTest is SecondaryTestHelpers {
         assertEq(token.balanceOf(user1), 5);
     }
 
-    function test_freeze_blocks_transfers() public {
-        vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "FRZ", "FRZ", DEFAULT_MAX_SUPPLY);
-        _unpauseAndMint(token, user1, 100);
-
-        vm.prank(tokenAgent);
-        p.tokenController.setFrozen(address(token), user1, true);
-
-        vm.prank(user1);
-        vm.expectRevert(bytes("wallet is frozen"));
-        token.transfer(user2, 10);
-
-        p.registerIdentity(vm, identityRegistryAgent, user2);
-
-        vm.prank(user1);
-        vm.expectRevert(bytes("wallet is frozen"));
-        token.transfer(user2, 1);
-
-        vm.prank(tokenAgent);
-        p.tokenController.setFrozen(address(token), user1, false);
-
-        vm.prank(user1);
-        require(token.transfer(user2, 10), "Transfer failed");
-        assertEq(token.balanceOf(user2), 10);
-    }
-
-    function test_partial_freeze_blocks_amount_above_frozen() public {
-        vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "PFZ", "PFZ", DEFAULT_MAX_SUPPLY);
-        _unpauseAndMint(token, user1, 100);
-        p.registerIdentity(vm, identityRegistryAgent, user2);
-
-        // add tokenAgent as a direct token agent so it can call freezePartialTokens
-        vm.prank(multisig);
-        token.addAgent(tokenAgent);
-
-        vm.prank(tokenAgent);
-        token.freezePartialTokens(user1, 50);
-
-        // transfer above frozen amount fails
-        vm.prank(user1);
-        vm.expectRevert(bytes("Insufficient Balance"));
-        token.transfer(user2, 60);
-
-        // transfer at exactly frozen boundary succeeds
-        vm.prank(user1);
-        require(token.transfer(user2, 50), "Transfer failed");
-        assertEq(token.balanceOf(user2), 50);
-        assertEq(token.balanceOf(user1), 50);
-    }
-
-    function test_forceTransfer_between_non_KYC_parties_succeeds() public {
-        vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "FTF", "FTF", DEFAULT_MAX_SUPPLY);
-
-        TokenController tc = TokenController(address(p.tokenController));
-        uint256 caps = tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FREEZABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT();
-        vm.prank(factoryShareDeployer);
-        p.tokenController.setTokenCapsInitial(address(token), caps);
-
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-
-        p.registerIdentity(vm, identityRegistryAgent, user1);
-        p.registerIdentity(vm, identityRegistryAgent, user2);
-
-        vm.prank(tokenAgent);
-        p.tokenController.mint(address(token), user1, 50);
-
-        // freeze user1 so normal transfers are blocked
-        vm.prank(tokenAgent);
-        p.tokenController.setFrozen(address(token), user1, true);
-
-        vm.prank(user1);
-        vm.expectRevert(bytes("wallet is frozen"));
-        token.transfer(user2, 10);
-
-        // force transfer bypasses wallet freeze
-        vm.prank(tokenAgent);
-        p.tokenController.forceTransfer(address(token), user1, user2, 20);
-
-        assertEq(token.balanceOf(user1), 30);
-        assertEq(token.balanceOf(user2), 20);
-    }
-
     function test_compliance_blocks_transfer_to_non_KYC() public {
         vm.prank(factoryShareDeployer);
         Token token = p.createShare(multisig, identityRegistryAgent, "CTK", "CTK", DEFAULT_MAX_SUPPLY);
@@ -184,6 +101,7 @@ contract SecondaryTest is SecondaryTestHelpers {
     }
 
     // ERC-3643 transfer() checks isVerified(_to) only — sender KYC is not required
+
     function test_sender_without_KYC_can_send() public {
         uint256 kycTopic = 7;
         vm.prank(factoryShareDeployer);
@@ -253,6 +171,7 @@ contract SecondaryTest is SecondaryTestHelpers {
     }
 
     // claim present but issuer absent from token's TrustedIssuersRegistry → isVerified returns false
+
     function test_claim_from_untrusted_issuer_rejected() public {
         uint256 kycTopic = 7;
         vm.prank(factoryShareDeployer);
@@ -267,6 +186,90 @@ contract SecondaryTest is SecondaryTestHelpers {
         vm.expectRevert(bytes("Transfer not possible"));
         token.transfer(user1, 10);
     }
+
+    function test_paused_token_blocks_transfer() public {
+        vm.prank(factoryShareDeployer);
+        Token token = p.createShare(multisig, identityRegistryAgent, "PAU", "PAU", DEFAULT_MAX_SUPPLY);
+        _unpauseAndMint(token, user1, 50);
+        p.registerIdentity(vm, identityRegistryAgent, user2);
+
+        vm.prank(tokenAgent);
+        p.tokenController.pause(address(token));
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("Pausable: paused"));
+        token.transfer(user2, 10);
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+
+        vm.prank(user1);
+        require(token.transfer(user2, 10), "Transfer failed");
+        assertEq(token.balanceOf(user2), 10);
+        assertEq(token.balanceOf(user1), 40);
+    }
+
+    // Forced transfers
+
+    function test_forceTransfer_between_non_KYC_parties_succeeds() public {
+        vm.prank(factoryShareDeployer);
+        Token token = p.createShare(multisig, identityRegistryAgent, "FTF", "FTF", DEFAULT_MAX_SUPPLY);
+
+        TokenController tc = TokenController(address(p.tokenController));
+        uint256 caps = tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FREEZABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT();
+        vm.prank(factoryShareDeployer);
+        p.tokenController.setTokenCapsInitial(address(token), caps);
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+
+        p.registerIdentity(vm, identityRegistryAgent, user1);
+        p.registerIdentity(vm, identityRegistryAgent, user2);
+
+        vm.prank(tokenAgent);
+        p.tokenController.mint(address(token), user1, 50);
+
+        // freeze user1 so normal transfers are blocked
+        vm.prank(tokenAgent);
+        p.tokenController.setFrozen(address(token), user1, true);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("wallet is frozen"));
+        token.transfer(user2, 10);
+
+        // force transfer bypasses wallet freeze
+        vm.prank(tokenAgent);
+        p.tokenController.forceTransfer(address(token), user1, user2, 20);
+
+        assertEq(token.balanceOf(user1), 30);
+        assertEq(token.balanceOf(user2), 20);
+    }
+
+    // forcedTransfer checks isVerified(_to); unregistered recipient -> "Transfer not possible"
+    function test_forceTransfer_to_unregistered_recipient() public {
+        vm.prank(factoryShareDeployer);
+        Token token = p.createShare(multisig, identityRegistryAgent, "FTU", "FTU", DEFAULT_MAX_SUPPLY);
+
+        TokenController tc = TokenController(address(p.tokenController));
+        uint256 caps = tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FREEZABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT();
+        vm.prank(factoryShareDeployer);
+        p.tokenController.setTokenCapsInitial(address(token), caps);
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+
+        p.registerIdentity(vm, identityRegistryAgent, user1);
+
+        vm.prank(tokenAgent);
+        p.tokenController.mint(address(token), user1, 50);
+
+        // user2 not registered in IR → forcedTransfer checks isVerified(_to) → reverts
+        vm.prank(tokenAgent);
+        vm.expectRevert(bytes("Transfer not possible"));
+        p.tokenController.forceTransfer(address(token), user1, user2, 20);
+    }
+
+    // Mint
 
     function test_mint_to_unverified_on_gated_token_reverts() public {
         uint256 kycTopic = 7;
@@ -290,28 +293,57 @@ contract SecondaryTest is SecondaryTestHelpers {
         p.tokenController.mint(address(token), user1, 10);
     }
 
-    // forcedTransfer checks isVerified(_to); unregistered recipient → "Transfer not possible"
-    function test_forceTransfer_to_unregistered_recipient() public {
+    // Freeze / partial freeze
+
+    function test_freeze_blocks_transfers() public {
         vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "FTU", "FTU", DEFAULT_MAX_SUPPLY);
+        Token token = p.createShare(multisig, identityRegistryAgent, "FRZ", "FRZ", DEFAULT_MAX_SUPPLY);
+        _unpauseAndMint(token, user1, 100);
 
-        TokenController tc = TokenController(address(p.tokenController));
-        uint256 caps = tc.PAUSABLE_BIT() | tc.MINTABLE_BIT() | tc.FREEZABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT();
+        vm.prank(tokenAgent);
+        p.tokenController.setFrozen(address(token), user1, true);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("wallet is frozen"));
+        token.transfer(user2, 10);
+
+        p.registerIdentity(vm, identityRegistryAgent, user2);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("wallet is frozen"));
+        token.transfer(user2, 1);
+
+        vm.prank(tokenAgent);
+        p.tokenController.setFrozen(address(token), user1, false);
+
+        vm.prank(user1);
+        require(token.transfer(user2, 10), "Transfer failed");
+        assertEq(token.balanceOf(user2), 10);
+    }
+
+    function test_partial_freeze_blocks_amount_above_frozen() public {
         vm.prank(factoryShareDeployer);
-        p.tokenController.setTokenCapsInitial(address(token), caps);
+        Token token = p.createShare(multisig, identityRegistryAgent, "PFZ", "PFZ", DEFAULT_MAX_SUPPLY);
+        _unpauseAndMint(token, user1, 100);
+        p.registerIdentity(vm, identityRegistryAgent, user2);
+
+        // add tokenAgent as a direct token agent so it can call freezePartialTokens
+        vm.prank(multisig);
+        token.addAgent(tokenAgent);
 
         vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
+        token.freezePartialTokens(user1, 50);
 
-        p.registerIdentity(vm, identityRegistryAgent, user1);
+        // transfer above frozen amount fails
+        vm.prank(user1);
+        vm.expectRevert(bytes("Insufficient Balance"));
+        token.transfer(user2, 60);
 
-        vm.prank(tokenAgent);
-        p.tokenController.mint(address(token), user1, 50);
-
-        // user2 not registered in IR → forcedTransfer checks isVerified(_to) → reverts
-        vm.prank(tokenAgent);
-        vm.expectRevert(bytes("Transfer not possible"));
-        p.tokenController.forceTransfer(address(token), user1, user2, 20);
+        // transfer at exactly frozen boundary succeeds
+        vm.prank(user1);
+        require(token.transfer(user2, 50), "Transfer failed");
+        assertEq(token.balanceOf(user2), 50);
+        assertEq(token.balanceOf(user1), 50);
     }
 
     function test_unfreeze_partial_restores_spendable() public {
@@ -336,28 +368,6 @@ contract SecondaryTest is SecondaryTestHelpers {
         vm.prank(user1);
         require(token.transfer(user2, 60), "Transfer failed");
         assertEq(token.balanceOf(user2), 60);
-        assertEq(token.balanceOf(user1), 40);
-    }
-
-    function test_paused_token_blocks_transfer() public {
-        vm.prank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "PAU", "PAU", DEFAULT_MAX_SUPPLY);
-        _unpauseAndMint(token, user1, 50);
-        p.registerIdentity(vm, identityRegistryAgent, user2);
-
-        vm.prank(tokenAgent);
-        p.tokenController.pause(address(token));
-
-        vm.prank(user1);
-        vm.expectRevert(bytes("Pausable: paused"));
-        token.transfer(user2, 10);
-
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-
-        vm.prank(user1);
-        require(token.transfer(user2, 10), "Transfer failed");
-        assertEq(token.balanceOf(user2), 10);
         assertEq(token.balanceOf(user1), 40);
     }
 }

@@ -38,6 +38,44 @@ contract SalesMathTest is Test {
         harness.initialize(address(0xBEEF));
     }
 
+    // _calculateUsdCost
+
+    function testFuzz_calculateUsdCost_no_free_positive_amount(uint256 amount, uint256 price, uint8 decimals)
+        public
+        view
+    {
+        amount = bound(amount, 1, 1e30);
+        price = bound(price, 1, 1e30);
+        decimals = uint8(bound(decimals, 0, 18));
+
+        uint256 usdCost = harness.exposedCalculateUsdCost(amount, price, decimals);
+        assertGt(usdCost, 0);
+    }
+
+    function testFuzz_calculateUsdCost_monotonic_amount_and_price(uint256 amount, uint256 price, uint8 decimals)
+        public
+        view
+    {
+        amount = bound(amount, 1, 1e24);
+        price = bound(price, 1, 1e24);
+        decimals = uint8(bound(decimals, 0, 18));
+
+        uint256 base = harness.exposedCalculateUsdCost(amount, price, decimals);
+        uint256 moreAmount = harness.exposedCalculateUsdCost(amount + 1, price, decimals);
+        uint256 higherPrice = harness.exposedCalculateUsdCost(amount, price + 1, decimals);
+        assertGe(moreAmount, base);
+        assertGe(higherPrice, base);
+    }
+
+    function test_calculateUsdCost_rounding_behavior_explicit() public view {
+        uint256 cost = harness.exposedCalculateUsdCost(1, 1e8, 18);
+        assertEq(cost, 1);
+        cost = harness.exposedCalculateUsdCost(1e18, 1e8, 18);
+        assertEq(cost, 1e8);
+    }
+
+    // _getTokenUsdPrice1e8
+
     function testFuzz_getTokenUsdPrice1e8_scaling_round_trip(uint8 decimals) public {
         decimals = uint8(bound(decimals, 6, 24));
         int256 rawPrice = int256(10 ** uint256(decimals));
@@ -81,39 +119,5 @@ contract SalesMathTest is Test {
         vm.warp(block.timestamp + 25 hours);
         vm.expectRevert(bytes("Sale_StalePrice"));
         harness.exposedGetTokenUsdPrice1e8Params(address(oracle), 24 hours, type(uint256).max);
-    }
-
-    function testFuzz_calculateUsdCost_no_free_positive_amount(uint256 amount, uint256 price, uint8 decimals)
-        public
-        view
-    {
-        amount = bound(amount, 1, 1e30);
-        price = bound(price, 1, 1e30);
-        decimals = uint8(bound(decimals, 0, 18));
-
-        uint256 usdCost = harness.exposedCalculateUsdCost(amount, price, decimals);
-        assertGt(usdCost, 0);
-    }
-
-    function testFuzz_calculateUsdCost_monotonic_amount_and_price(uint256 amount, uint256 price, uint8 decimals)
-        public
-        view
-    {
-        amount = bound(amount, 1, 1e24);
-        price = bound(price, 1, 1e24);
-        decimals = uint8(bound(decimals, 0, 18));
-
-        uint256 base = harness.exposedCalculateUsdCost(amount, price, decimals);
-        uint256 moreAmount = harness.exposedCalculateUsdCost(amount + 1, price, decimals);
-        uint256 higherPrice = harness.exposedCalculateUsdCost(amount, price + 1, decimals);
-        assertGe(moreAmount, base);
-        assertGe(higherPrice, base);
-    }
-
-    function test_calculateUsdCost_rounding_behavior_explicit() public view {
-        uint256 cost = harness.exposedCalculateUsdCost(1, 1e8, 18);
-        assertEq(cost, 1);
-        cost = harness.exposedCalculateUsdCost(1e18, 1e8, 18);
-        assertEq(cost, 1e8);
     }
 }
