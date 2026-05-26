@@ -23,6 +23,7 @@ import {IModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modu
 import {SalesManager} from "contracts/SalesManager.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MaxSupplyModule} from "contracts/compliance/modules/MaxSupplyModule.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract SalesTest is SalesTestHelpers {
     using ShareTestUtils for Protocol;
@@ -1615,5 +1616,88 @@ contract SalesTest is SalesTestHelpers {
         vm.prank(multisig);
         p.salesManager.upgradeTo(address(newImpl));
         assertTrue(p.salesManager.allowedPaymentToken(address(stable)));
+    }
+
+    function _expectedCost(uint256 amount, uint256 priceUsdPerShare, uint8 shareDecimals, uint256 oraclePrice1e8)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 usdCost = Math.mulDiv(amount, priceUsdPerShare, 10 ** uint256(shareDecimals), Math.Rounding.Up);
+        return Math.mulDiv(usdCost, 1e6, oraclePrice1e8, Math.Rounding.Up);
+    }
+
+    function testFuzz_buy_charges_expected_cost(uint256 amount, uint256 oracleAns) public {
+        BasicSaleCtx memory ctx = _setupBasicSale("FZB", "FZB", 1000, 1e8);
+        amount = bound(amount, 1, 1000);
+        oracleAns = bound(oracleAns, 1e6, 1e11);
+        ctx.oracle.updatePrice(int256(oracleAns));
+        vm.warp(ctx.start + 1);
+
+        uint256 expected = _expectedCost(amount, 1e8, 0, oracleAns);
+        ctx.stable.mint(buyer, expected);
+        uint256 buyerSharesBefore = ctx.token.balanceOf(buyer);
+        uint256 treasuryBefore = ctx.stable.balanceOf(multisig);
+
+        vm.startPrank(buyer);
+        ctx.stable.approve(address(p.salesManager), expected);
+        p.salesManager.buy(ctx.saleId, amount, buyer, address(ctx.stable), expected);
+        vm.stopPrank();
+
+        assertEq(ctx.token.balanceOf(buyer) - buyerSharesBefore, amount, "shares minted");
+        assertEq(ctx.stable.balanceOf(multisig) - treasuryBefore, expected, "treasury received");
+    }
+
+    function testFuzz_buy_respects_maxPayment(uint256 amount, uint256 maxPay) public {
+        BasicSaleCtx memory ctx = _setupBasicSale("FZM", "FZM", 1000, 1e8);
+        amount = bound(amount, 1, 1000);
+        vm.warp(ctx.start + 1);
+
+        uint256 expected = _expectedCost(amount, 1e8, 0, 1e8);
+        maxPay = bound(maxPay, 0, expected - 1);
+        ctx.stable.mint(buyer, expected);
+
+        vm.startPrank(buyer);
+        ctx.stable.approve(address(p.salesManager), expected);
+        vm.expectRevert(bytes("Sale_MaxPaymentExceeded"));
+        p.salesManager.buy(ctx.saleId, amount, buyer, address(ctx.stable), maxPay);
+        vm.stopPrank();
+    }
+
+    function testFuzz_buy_reverts_above_ceiling(uint256 oracleAns, uint256 ceiling) public {
+        BasicSaleCtx memory ctx = _setupBasicSale("FZC", "FZC", 1000, 1e8);
+        oracleAns = bound(oracleAns, 2, 1e12);
+        ceiling = bound(ceiling, 1, oracleAns - 1);
+
+        vm.prank(salesManagerSalesConfig);
+        p.salesManager.setPaymentTokenOracle(address(ctx.stable), address(ctx.oracle), 1 hours, ceiling);
+        ctx.oracle.updatePrice(int256(oracleAns));
+        vm.warp(ctx.start + 1);
+
+        ctx.stable.mint(buyer, type(uint128).max);
+        vm.startPrank(buyer);
+        ctx.stable.approve(address(p.salesManager), type(uint128).max);
+        vm.expectRevert(bytes("Sale_PriceAboveCeiling"));
+        p.salesManager.buy(ctx.saleId, 1, buyer, address(ctx.stable), type(uint128).max);
+        vm.stopPrank();
+    }
+
+    function testFuzz_buy_varied_share_decimals(uint8 shareDecimals, uint256 amount) public {
+        shareDecimals = uint8(bound(shareDecimals, 0, 18));
+        uint256 maxSupply = 1_000_000 * (10 ** uint256(shareDecimals));
+        BasicSaleCtx memory ctx = _setupBasicSaleWithDecimals("FZV", "FZV", shareDecimals, maxSupply, maxSupply, 1e8);
+        amount = bound(amount, 1, 1000 * (10 ** uint256(shareDecimals)));
+        vm.warp(ctx.start + 1);
+
+        uint256 expected = _expectedCost(amount, 1e8, shareDecimals, 1e8);
+        ctx.stable.mint(buyer, expected);
+        uint256 buyerSharesBefore = ctx.token.balanceOf(buyer);
+
+        vm.startPrank(buyer);
+        ctx.stable.approve(address(p.salesManager), expected);
+        p.salesManager.buy(ctx.saleId, amount, buyer, address(ctx.stable), expected);
+        vm.stopPrank();
+
+        assertEq(ctx.token.balanceOf(buyer) - buyerSharesBefore, amount, "shares minted");
     }
 }

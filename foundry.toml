@@ -21,5 +21,22 @@ remappings = [
 fs_permissions = [
     { access = "read", path = "./config" }
 ]
+[profile.default.fuzz]
+runs = 1000
+
+[profile.default.invariant]
+runs = 256
+depth = 500
+fail_on_revert = false
+
+[profile.ci.fuzz]
+runs = 50000
+max_test_rejects = 1000000
+
+[profile.ci.invariant]
+runs = 5000
+depth = 1000
+fail_on_revert = false
+
 [lint]
 exclude_lints = ["mixed-case-variable"]
