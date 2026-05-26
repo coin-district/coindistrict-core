@@ -1183,21 +1183,7 @@ contract SalesTest is SalesTestHelpers {
     // ─── P1.2 cross-sale oversubscription (current behavior) ──────────────────────
 
     function test_createSale_allows_oversubscription_but_second_sale_mint_can_revert_at_token_level() public {
-        vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "OVR", "OVR", 100);
-        p.tokenController.setTokenCapsInitial(address(token), p.tokenController.PAUSABLE_BIT());
-        vm.stopPrank();
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-        p.registerIdentity(vm, identityRegistryAgent, buyer);
-
-        MockToken stable = new MockToken("USD", "USD", 6);
-        stable.mint(buyer, 1_000_000_000);
-        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
-        vm.startPrank(salesManagerSalesConfig);
-        p.salesManager.setAllowedPaymentToken(address(stable), true);
-        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle), 24 hours, type(uint256).max);
-        vm.stopPrank();
+        (Token token, MockToken stable,) = _setupCappedTokenAndPayment("OVR", "OVR", 100);
 
         uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
@@ -1223,21 +1209,7 @@ contract SalesTest is SalesTestHelpers {
     }
 
     function test_buy_consumes_shared_maxSupply_across_sales() public {
-        vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "CS2", "CS2", 100);
-        p.tokenController.setTokenCapsInitial(address(token), p.tokenController.PAUSABLE_BIT());
-        vm.stopPrank();
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-        p.registerIdentity(vm, identityRegistryAgent, buyer);
-
-        MockToken stable = new MockToken("USD", "USD", 6);
-        stable.mint(buyer, 1_000_000_000);
-        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
-        vm.startPrank(salesManagerSalesConfig);
-        p.salesManager.setAllowedPaymentToken(address(stable), true);
-        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle), 24 hours, type(uint256).max);
-        vm.stopPrank();
+        (Token token, MockToken stable,) = _setupCappedTokenAndPayment("CS2", "CS2", 100);
 
         uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
@@ -1267,21 +1239,7 @@ contract SalesTest is SalesTestHelpers {
     }
 
     function test_cancelSale_does_not_unmint_already_sold_supply() public {
-        vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "CDS", "CDS", 100);
-        p.tokenController.setTokenCapsInitial(address(token), p.tokenController.PAUSABLE_BIT());
-        vm.stopPrank();
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-        p.registerIdentity(vm, identityRegistryAgent, buyer);
-
-        MockToken stable = new MockToken("USD", "USD", 6);
-        stable.mint(buyer, 1_000_000_000);
-        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
-        vm.startPrank(salesManagerSalesConfig);
-        p.salesManager.setAllowedPaymentToken(address(stable), true);
-        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle), 24 hours, type(uint256).max);
-        vm.stopPrank();
+        (Token token, MockToken stable,) = _setupCappedTokenAndPayment("CDS", "CDS", 100);
 
         uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);
@@ -1301,8 +1259,9 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.cancelSale(saleId0);
 
         vm.warp(block.timestamp + 1);
-        uint64 start2 = uint64(block.timestamp + 100);
-        uint64 deadline2 = uint64(block.timestamp + 3600);
+        uint64 nowTs = uint64(block.timestamp);
+        uint64 start2 = nowTs + 100;
+        uint64 deadline2 = nowTs + 3600;
 
         // createSale rejects 81 because only 80 remain in the token cap (20 minted, not unminted on cancel)
         vm.prank(salesManagerSalesOperator);
@@ -1324,21 +1283,7 @@ contract SalesTest is SalesTestHelpers {
     // ─── P1.3 cap reduction mid-sale ────────────────────────────────────────────
 
     function test_maxSupplyCap_reduced_mid_sale_mint_reverts_without_sale_accounting_change() public {
-        vm.startPrank(factoryShareDeployer);
-        Token token = p.createShare(multisig, identityRegistryAgent, "CAP", "CAP", 100);
-        p.tokenController.setTokenCapsInitial(address(token), p.tokenController.PAUSABLE_BIT());
-        vm.stopPrank();
-        vm.prank(tokenAgent);
-        p.tokenController.unpause(address(token));
-        p.registerIdentity(vm, identityRegistryAgent, buyer);
-
-        MockToken stable = new MockToken("USD", "USD", 6);
-        stable.mint(buyer, 1_000_000_000);
-        MockAggregatorV3 oracle = new MockAggregatorV3(8, 100_000_000);
-        vm.startPrank(salesManagerSalesConfig);
-        p.salesManager.setAllowedPaymentToken(address(stable), true);
-        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle), 24 hours, type(uint256).max);
-        vm.stopPrank();
+        (Token token, MockToken stable,) = _setupCappedTokenAndPayment("CAP", "CAP", 100);
 
         uint64 start = uint64(block.timestamp + 100);
         uint64 deadline = uint64(block.timestamp + 3600);

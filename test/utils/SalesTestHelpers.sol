@@ -159,6 +159,29 @@ abstract contract SalesTestHelpers is Test, ProtocolFixture {
         ctx.saleId = p.salesManager.saleCount() - 1;
     }
 
+    function _setupCappedTokenAndPayment(string memory name, string memory symbol, uint256 maxSupply)
+        internal
+        returns (Token token, MockToken stable, MockAggregatorV3 oracle)
+    {
+        vm.startPrank(factoryShareDeployer);
+        token = p.createShare(multisig, identityRegistryAgent, name, symbol, maxSupply);
+        p.tokenController.setTokenCapsInitial(address(token), p.tokenController.PAUSABLE_BIT());
+        vm.stopPrank();
+
+        vm.prank(tokenAgent);
+        p.tokenController.unpause(address(token));
+        p.registerIdentity(vm, identityRegistryAgent, buyer);
+
+        stable = new MockToken("USD", "USD", 6);
+        stable.mint(buyer, 1_000_000_000);
+        oracle = new MockAggregatorV3(8, 100_000_000);
+
+        vm.startPrank(salesManagerSalesConfig);
+        p.salesManager.setAllowedPaymentToken(address(stable), true);
+        p.salesManager.setPaymentTokenOracle(address(stable), address(oracle), 24 hours, type(uint256).max);
+        vm.stopPrank();
+    }
+
     function _ceilPayment(uint256 usdCost1e8, uint8 tokenDecimals, uint256 tokenUsdPrice1e8)
         internal
         pure
