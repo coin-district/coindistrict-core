@@ -498,12 +498,11 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         returns (uint256 price)
     {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
-        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
+        (, int256 answer,, uint256 updatedAt,) = priceFeed.latestRoundData();
 
         // Validate price data
         require(answer > 0, "Sale_InvalidPrice");
         require(updatedAt > 0, "Sale_PriceNotUpdated");
-        require(answeredInRound >= roundId, "Sale_StaleRound");
         require(block.timestamp - updatedAt <= maxDelay, "Sale_StalePrice");
 
         uint8 aggregatorDecimals = priceFeed.decimals();
