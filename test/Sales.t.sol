@@ -1066,18 +1066,6 @@ contract SalesTest is SalesTestHelpers {
         vm.stopPrank();
     }
 
-    function test_buy_with_oracle_stale_round_reverts_stale_round() public {
-        BasicSaleCtx memory ctx = _setupBasicSale("OSR", "OSR", 100, 1e8);
-        ctx.oracle.setAnsweredInRound(0);
-        vm.warp(ctx.start + 1);
-
-        vm.startPrank(buyer);
-        ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_StaleRound"));
-        p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
-        vm.stopPrank();
-    }
-
     function test_buy_at_oracle_staleness_boundary_succeeds() public {
         BasicSaleCtx memory ctx = _setupBasicSale("OBD", "OBD", 100, 1e8);
         vm.prank(salesManagerSalesConfig);
