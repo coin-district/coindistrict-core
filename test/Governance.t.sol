@@ -32,14 +32,7 @@ contract GovernanceTest is Test {
         deployer = new GovernanceDeployer();
     }
 
-    function _deployGovernance(address accessManager) internal returns (address deployed) {
-        bytes memory creation = vm.getCode("contracts/governance/Governance.sol:Governance");
-        bytes memory bytecode = abi.encodePacked(creation, abi.encode(accessManager));
-        assembly ("memory-safe") {
-            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-        require(deployed != address(0), "Governance deploy failed");
-    }
+    // Constructor
 
     function test_constructor_rejects_zero_access_manager() public {
         bytes memory creation = vm.getCode("contracts/governance/Governance.sol:Governance");
@@ -52,6 +45,8 @@ contract GovernanceTest is Test {
         IGovernance gov = IGovernance(_deployGovernance(address(manager)));
         assertEq(gov.accessManager(), address(manager));
     }
+
+    // hasRole
 
     function test_hasRole_returns_true_when_canCall_immediate() public {
         IGovernance gov = IGovernance(_deployGovernance(address(manager)));
@@ -76,14 +71,6 @@ contract GovernanceTest is Test {
         assertFalse(gov.hasRole(caller, target, selector));
     }
 
-    function test_canCall_proxies_delayed_access_manager_return() public {
-        manager.setCanCallReturn(false, 100);
-        IGovernance gov = IGovernance(_deployGovernance(address(manager)));
-        (bool immediate, uint32 delay) = gov.canCall(address(0x1), address(0x2), bytes4(keccak256("x()")));
-        assertFalse(immediate);
-        assertEq(delay, 100);
-    }
-
     function test_hasRole_returns_true_after_delay_expires() public {
         address caller = address(0x123);
         address target = address(0x456);
@@ -101,6 +88,16 @@ contract GovernanceTest is Test {
         manager.clearCanCallReturn();
 
         assertTrue(gov.hasRole(caller, target, selector));
+    }
+
+    // canCall
+
+    function test_canCall_proxies_delayed_access_manager_return() public {
+        manager.setCanCallReturn(false, 100);
+        IGovernance gov = IGovernance(_deployGovernance(address(manager)));
+        (bool immediate, uint32 delay) = gov.canCall(address(0x1), address(0x2), bytes4(keccak256("x()")));
+        assertFalse(immediate);
+        assertEq(delay, 100);
     }
 
     function test_canCall_transitions_from_delayed_to_immediate_after_delay() public {
@@ -140,6 +137,17 @@ contract GovernanceTest is Test {
         (bool immediate, uint32 delay) = gov.canCall(caller, target, selector);
         assertTrue(immediate);
         assertEq(delay, 0);
+    }
+
+    // Helpers
+
+    function _deployGovernance(address accessManager) internal returns (address deployed) {
+        bytes memory creation = vm.getCode("contracts/governance/Governance.sol:Governance");
+        bytes memory bytecode = abi.encodePacked(creation, abi.encode(accessManager));
+        assembly ("memory-safe") {
+            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(deployed != address(0), "Governance deploy failed");
     }
 
     function _toSingle(bytes4 selector) internal pure returns (bytes4[] memory arr) {
