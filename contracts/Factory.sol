@@ -93,35 +93,23 @@ contract Factory is IFactory, UUPSUpgradeable {
     /**
      * @dev see {IFactory.createShare}
      */
-    function createShare(
-        string calldata _name,
-        string calldata _symbol,
-        uint8 _decimals,
-        address _owner,
-        address[] calldata _tokenAgents,
-        address[] calldata _irAgents,
-        address _irs,
-        uint256[] calldata _claimTopics,
-        address[] calldata _issuers,
-        uint256[][] calldata _issuerClaims,
-        uint256 _maxSupply
-    ) external onlyGov returns (address) {
+    function createShare(IFactory.CreateShareParams calldata params) external onlyGov returns (address) {
         require(isContractTrexFactoryOwner(), "Factory_NotOwnerOfTREXFactory");
-        require(_maxSupply > 0, "Factory_MaxSupplyRequired");
+        require(params.maxSupply > 0, "Factory_MaxSupplyRequired");
         require(maxSupplyModule != address(0), "Factory_MaxSupplyModuleNotSet");
 
         // Standard deployments cannot include any extra token agents
-        require(_tokenAgents.length == 0, "Factory_CustomTokenAgentsNotAllowed");
+        require(params.tokenAgents.length == 0, "Factory_CustomTokenAgentsNotAllowed");
 
-        require(_irAgents.length <= 5, "Factory_Max5IRAgents");
+        require(params.irAgents.length <= 5, "Factory_Max5IRAgents");
         require(
-            _irs == address(0) || IOwnableMinimal(_irs).owner() == address(_trexFactory),
+            params.irs == address(0) || IOwnableMinimal(params.irs).owner() == address(_trexFactory),
             "Factory_IRSNot0OrOwnedByTREXFactory"
         );
         // Claim/issuer constraints mirror TREXFactory
-        require(_claimTopics.length <= 5, "Factory_Max5ClaimTopics");
-        require(_issuers.length <= 5, "Factory_Max5Issuers");
-        require(_issuerClaims.length == _issuers.length, "Factory_ClaimIssuerLengthMismatch");
+        require(params.claimTopics.length <= 5, "Factory_Max5ClaimTopics");
+        require(params.issuers.length <= 5, "Factory_Max5Issuers");
+        require(params.issuerClaims.length == params.issuers.length, "Factory_ClaimIssuerLengthMismatch");
 
         // Always exactly these 2 agents: TokenController (capability hub) and SalesManager (minting)
         address[] memory tokenAgents = new address[](2);
@@ -129,29 +117,29 @@ contract Factory is IFactory, UUPSUpgradeable {
         tokenAgents[1] = salesManagerAddress;
 
         ITREXFactory.TokenDetails memory tokenDetails = ITREXFactory.TokenDetails({
-            owner: _owner,
-            name: _name,
-            symbol: _symbol,
-            decimals: _decimals,
-            irs: _irs,
+            owner: params.owner,
+            name: params.name,
+            symbol: params.symbol,
+            decimals: params.decimals,
+            irs: params.irs,
             ONCHAINID: address(0),
-            irAgents: _irAgents,
+            irAgents: params.irAgents,
             tokenAgents: tokenAgents,
             complianceModules: new address[](1),
             complianceSettings: new bytes[](1)
         });
 
         tokenDetails.complianceModules[0] = maxSupplyModule;
-        tokenDetails.complianceSettings[0] = abi.encodeWithSignature("setMaxSupply(uint256)", _maxSupply);
+        tokenDetails.complianceSettings[0] = abi.encodeWithSignature("setMaxSupply(uint256)", params.maxSupply);
 
-        ITREXFactory.ClaimDetails memory claimDetails =
-            ITREXFactory.ClaimDetails({claimTopics: _claimTopics, issuers: _issuers, issuerClaims: _issuerClaims});
+        ITREXFactory.ClaimDetails memory claimDetails = ITREXFactory.ClaimDetails({
+            claimTopics: params.claimTopics, issuers: params.issuers, issuerClaims: params.issuerClaims
+        });
 
-        bytes32 saltHash = keccak256(abi.encode(_name, _symbol));
+        bytes32 saltHash = keccak256(abi.encode(params.name, params.symbol));
         string memory salt = string(abi.encodePacked(saltHash));
 
-        address tokenAddr = _deployWithAuthorityBoundSalt(salt, tokenDetails, claimDetails);
-        return tokenAddr;
+        return _deployWithAuthorityBoundSalt(salt, tokenDetails, claimDetails);
     }
 
     /**

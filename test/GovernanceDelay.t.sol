@@ -6,6 +6,7 @@ import {ProtocolFixture, Protocol, Accounts, RoleIds, IUUPSUpgradeableLike} from
 import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
 import {Permission} from "./fixtures/Permissions.sol";
 import {Factory} from "contracts/Factory.sol";
+import {IFactory} from "contracts/IFactory.sol";
 import {SalesManager} from "contracts/SalesManager.sol";
 import {TokenController} from "contracts/TokenController.sol";
 import {IAccessManager} from "contracts/interfaces/IAccessManager.sol";
@@ -53,34 +54,38 @@ contract GovernanceDelayTest is Test, ProtocolFixture {
     function test_delayed_role_requires_access_manager_execution_for_factory_action() public {
         bytes memory data = abi.encodeWithSelector(
             Factory.createShare.selector,
-            "DELAY",
-            "DLY",
-            uint8(0),
-            acc.multisig,
-            new address[](0),
-            _single(acc.identityRegistryAgent),
-            address(p.identityRegistryStorage),
-            new uint256[](0),
-            new address[](0),
-            new uint256[][](0),
-            1000
+            IFactory.CreateShareParams({
+                name: "DELAY",
+                symbol: "DLY",
+                decimals: uint8(0),
+                owner: acc.multisig,
+                tokenAgents: new address[](0),
+                irAgents: _single(acc.identityRegistryAgent),
+                irs: address(p.identityRegistryStorage),
+                claimTopics: new uint256[](0),
+                issuers: new address[](0),
+                issuerClaims: new uint256[][](0),
+                maxSupply: 1000
+            })
         );
 
         vm.prank(acc.factoryShareDeployer);
         vm.expectRevert();
         p.factory
             .createShare(
-                "DELAY",
-                "DLY",
-                0,
-                acc.multisig,
-                new address[](0),
-                _single(acc.identityRegistryAgent),
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
+                IFactory.CreateShareParams({
+                    name: "DELAY",
+                    symbol: "DLY",
+                    decimals: 0,
+                    owner: acc.multisig,
+                    tokenAgents: new address[](0),
+                    irAgents: _single(acc.identityRegistryAgent),
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 1000
+                })
             );
 
         vm.prank(acc.factoryShareDeployer);
@@ -104,17 +109,19 @@ contract GovernanceDelayTest is Test, ProtocolFixture {
         vm.prank(acc.multisig);
         p.factory
             .createShare(
-                "DLS",
-                "DLS",
-                0,
-                acc.multisig,
-                new address[](0),
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
+                IFactory.CreateShareParams({
+                    name: "DLS",
+                    symbol: "DLS",
+                    decimals: 0,
+                    owner: acc.multisig,
+                    tokenAgents: new address[](0),
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 1000
+                })
             );
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
 
@@ -173,17 +180,19 @@ contract GovernanceDelayTest is Test, ProtocolFixture {
         vm.prank(acc.multisig);
         p.factory
             .createShare(
-                "DLM",
-                "DLM",
-                0,
-                acc.multisig,
-                new address[](0),
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
+                IFactory.CreateShareParams({
+                    name: "DLM",
+                    symbol: "DLM",
+                    decimals: 0,
+                    owner: acc.multisig,
+                    tokenAgents: new address[](0),
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 1000
+                })
             );
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
         Token token = Token(tokenAddr);
