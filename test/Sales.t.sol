@@ -866,10 +866,7 @@ contract SalesTest is SalesTestHelpers {
 
         // Sign with key 99 — valid at add time because signer99 is in the issuer
         bytes memory claimData = hex"0042";
-        bytes32 dataHash = keccak256(abi.encode(address(userIdentity), kycTopic, claimData));
-        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(99, ethSignedHash);
-        bytes memory sig = abi.encodePacked(r, s, v);
+        bytes memory sig = _signKycClaim(address(userIdentity), kycTopic, claimData, 99);
         vm.prank(buyer);
         userIdentity.addClaim(kycTopic, 1, address(p.claimIssuer), sig, claimData, "");
 

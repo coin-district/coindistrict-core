@@ -195,6 +195,35 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         whenNotPaused
     {
         Sale storage s = _sales[_saleId];
+        _validateBuyInputs(s, _amount, _to);
+
+        address aggregator = _requireAllowedPaymentToken(s, _paymentToken);
+        uint256 tokenAmount =
+            _quotePaymentAmount(_amount, s.priceUsdPerShare, s.shareDecimals, aggregator, _paymentToken);
+        require(tokenAmount <= _maxPayment, "Sale_MaxPaymentExceeded");
+
+        // Cache storage fields needed after interactions before mutating state.
+        address share = s.share;
+        address fundsRecipient = s.fundsRecipient;
+
+        // EFFECTS: update accounting before any external interaction (CEI; defense-in-depth atop nonReentrant)
+        s.remainingSupply -= _amount;
+        unchecked {
+            saleIdToSold[_saleId] += _amount;
+        }
+
+        // INTERACTIONS
+        _pullExactPayment(_paymentToken, tokenAmount);
+        IToken(share).mint(_to, _amount);
+        IERC20(_paymentToken).safeTransfer(fundsRecipient, tokenAmount);
+
+        emit SharePurchase(_saleId, msg.sender, _to, _paymentToken, _amount, tokenAmount);
+    }
+
+    /**
+     * @dev Validate sale state and buyer inputs shared by buy().
+     */
+    function _validateBuyInputs(Sale storage s, uint256 _amount, address _to) internal view {
         require(s.active, "Sale_NotActive");
         require(!s.paused, "Sale_Paused");
         require(s.share != address(0), "Sale_DoesNotExist");
@@ -202,8 +231,17 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(block.timestamp >= s.start, "Sale_NotStarted");
         require(block.timestamp <= s.deadline, "Sale_Ended");
         require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
+    }
 
-        // Check if payment token is in the sale's allowed list
+    /**
+     * @dev Confirm `_paymentToken` is allowed for this sale and globally, then return its oracle.
+     * @return aggregator Chainlink USD aggregator for the payment token.
+     */
+    function _requireAllowedPaymentToken(Sale storage s, address _paymentToken)
+        internal
+        view
+        returns (address aggregator)
+    {
         bool isAllowed = false;
         for (uint256 i = 0; i < s.paymentTokensAllowed.length; i++) {
             if (s.paymentTokensAllowed[i] == _paymentToken) {
@@ -214,49 +252,38 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         require(isAllowed, "Sale_PaymentTokenNotAllowed");
         require(allowedPaymentToken[_paymentToken], "Sale_PaymentTokenNotAllowed");
 
-        // Get oracle aggregator (already validated at sale creation)
-        address aggregator = paymentTokenToUsdAggregator[_paymentToken];
+        aggregator = paymentTokenToUsdAggregator[_paymentToken];
         require(aggregator != address(0), "Sale_OracleNotConfigured");
+    }
 
-        // Calculate USD cost (in 1e8)
-        uint256 usdCost = _calculateUsdCost(_amount, s.priceUsdPerShare, s.shareDecimals);
+    /**
+     * @dev Convert a share amount to the payment token amount required, with ceil rounding.
+     */
+    function _quotePaymentAmount(
+        uint256 _amount,
+        uint256 _priceUsdPerShare,
+        uint8 _shareDecimals,
+        address _aggregator,
+        address _paymentToken
+    ) internal view returns (uint256 tokenAmount) {
+        uint256 usdCost = _calculateUsdCost(_amount, _priceUsdPerShare, _shareDecimals);
         require(usdCost > 0, "Sale_ZeroCost");
 
-        // Get token/USD price from Chainlink (returns price in 1e8); applies per-feed staleness + ceiling
         uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(
-            aggregator, paymentTokenMaxDelay[_paymentToken], paymentTokenMaxPrice1e8[_paymentToken]
+            _aggregator, paymentTokenMaxDelay[_paymentToken], paymentTokenMaxPrice1e8[_paymentToken]
         );
-
-        // Get payment token decimals
         uint8 tokenDecimals = IERC20Metadata(_paymentToken).decimals();
+        tokenAmount = Math.mulDiv(usdCost, 10 ** uint256(tokenDecimals), tokenUsdPrice1e8, Math.Rounding.Up);
+    }
 
-        // Convert USD cost to payment token amount with ceil rounding
-        // tokenAmount = ceil(usdCost * 10^tokenDecimals / tokenUsdPrice1e8)
-        uint256 tokenAmount = Math.mulDiv(usdCost, 10 ** uint256(tokenDecimals), tokenUsdPrice1e8, Math.Rounding.Up);
-
-        // Slippage protection
-        require(tokenAmount <= _maxPayment, "Sale_MaxPaymentExceeded");
-
-        // EFFECTS: update accounting before any external interaction (CEI; defense-in-depth atop nonReentrant)
-        s.remainingSupply -= _amount;
-        unchecked {
-            saleIdToSold[_saleId] += _amount;
-        }
-
-        // INTERACTIONS
-        // Pull payment token from buyer; detect fee-on-transfer via the balance delta
+    /**
+     * @dev Pull `_tokenAmount` from `msg.sender`, reverting if the received amount differs (fee-on-transfer).
+     */
+    function _pullExactPayment(address _paymentToken, uint256 _tokenAmount) internal {
         uint256 balanceBefore = IERC20(_paymentToken).balanceOf(address(this));
-        IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
         uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
-        require(balanceAfter - balanceBefore == tokenAmount, "Sale_TransferAmountMismatch");
-
-        // Mint shares to recipient. Requires this contract to be an Agent on the share.
-        IToken(s.share).mint(_to, _amount);
-
-        // Forward funds to recipient treasury
-        IERC20(_paymentToken).safeTransfer(s.fundsRecipient, tokenAmount);
-
-        emit SharePurchase(_saleId, msg.sender, _to, _paymentToken, _amount, tokenAmount);
+        require(balanceAfter - balanceBefore == _tokenAmount, "Sale_TransferAmountMismatch");
     }
 
     /**

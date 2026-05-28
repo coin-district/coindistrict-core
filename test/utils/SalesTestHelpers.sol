@@ -234,13 +234,23 @@ abstract contract SalesTestHelpers is Test, ProtocolFixture {
         IClaimIssuer(address(p.claimIssuer)).addKey(keccak256(abi.encode(claimIssuer)), 3, 1);
 
         bytes memory claimData = hex"0042";
-        bytes32 dataHash = keccak256(abi.encode(address(userIdentity), kycTopic, claimData));
-        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(5, ethSignedHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature = _signKycClaim(address(userIdentity), kycTopic, claimData, 5);
 
         vm.prank(wallet);
         userIdentity.addClaim(kycTopic, 1, address(p.claimIssuer), signature, claimData, "");
+    }
+
+    /**
+     * @dev Build a KYC claim ERC-735 signature for `subject` under `topic` with `data`, signed by `signerPk`.
+     */
+    function _signKycClaim(address subject, uint256 topic, bytes memory data, uint256 signerPk)
+        internal
+        returns (bytes memory)
+    {
+        bytes32 dataHash = keccak256(abi.encode(subject, topic, data));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, ethSignedHash);
+        return abi.encodePacked(r, s, v);
     }
 
     function _singleUint(uint256 v) internal pure returns (uint256[] memory arr) {

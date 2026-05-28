@@ -126,21 +126,31 @@ abstract contract ProtocolFixture is Test {
         a.user2 = vm.addr(13);
     }
 
-    function deployProtocol(Accounts memory a) internal returns (Protocol memory) {
-        // OnchainID stack
+    function deployProtocol(Accounts memory a) internal returns (Protocol memory result) {
+        _deployOnchainStack(result);
+        TREXImplementationAuthority trexIa = _deployTrexStack(result);
+        _deployGovernanceStack(result, a.multisig);
+        _deployManagedProxies(result);
+        _deployRegistryStack(result, trexIa);
+        _finalizeOwnership(result, a.multisig);
+        result.claimIssuer = new ClaimIssuer(a.claimIssuer);
+    }
+
+    function _deployOnchainStack(Protocol memory result) internal {
         Identity idImplementation = new Identity(address(this), true);
         OnchainImplementationAuthority identityIa = new OnchainImplementationAuthority(address(idImplementation));
-        IdFactory idFactory = new IdFactory(address(identityIa));
-        Gateway gateway = new Gateway(address(idFactory), new address[](0));
+        result.idFactory = new IdFactory(address(identityIa));
+        result.gateway = new Gateway(address(result.idFactory), new address[](0));
+    }
 
-        // TREX implementations and authority
+    function _deployTrexStack(Protocol memory result) internal returns (TREXImplementationAuthority trexIa) {
         ClaimTopicsRegistry ctrImpl = new ClaimTopicsRegistry();
         TrustedIssuersRegistry tirImpl = new TrustedIssuersRegistry();
         IdentityRegistryStorage irsImpl = new IdentityRegistryStorage();
         IdentityRegistry irImpl = new IdentityRegistry();
         ModularCompliance mcImpl = new ModularCompliance();
         Token tokenImpl = new Token();
-        TREXImplementationAuthority trexIa = new TREXImplementationAuthority(true, address(0), address(0));
+        trexIa = new TREXImplementationAuthority(true, address(0), address(0));
 
         ITREXImplementationAuthority.Version memory version =
             ITREXImplementationAuthority.Version({major: 4, minor: 0, patch: 0});
@@ -154,78 +164,66 @@ abstract contract ProtocolFixture is Test {
         });
         trexIa.addAndUseTREXVersion(version, trexContracts);
 
-        TREXFactory trexFactory = new TREXFactory(address(trexIa), address(idFactory));
-        idFactory.addTokenFactory(address(trexFactory));
+        result.trexFactory = new TREXFactory(address(trexIa), address(result.idFactory));
+        result.idFactory.addTokenFactory(address(result.trexFactory));
+    }
 
-        // Governance stack (real OZ AccessManager + Governance)
-        address accessManager = _deployAccessManager(a.multisig);
+    function _deployGovernanceStack(Protocol memory result, address multisig) internal {
+        address accessManager = _deployAccessManager(multisig);
         address governance = _deployGovernance(accessManager);
-
-        // SalesManager proxy
-        SalesManager salesManagerImpl = new SalesManager();
-        SalesManager salesManager = SalesManager(address(new ERC1967Proxy(address(salesManagerImpl), "")));
-        salesManager.initialize(address(governance));
-
-        // TokenController proxy
-        TokenController tokenControllerImpl = new TokenController();
-        TokenController tokenController = TokenController(address(new ERC1967Proxy(address(tokenControllerImpl), "")));
-        tokenController.initialize(address(governance));
-
-        // MaxSupply module
-        MaxSupplyModule maxSupplyModule = new MaxSupplyModule();
-
-        // Factory proxy
-        Factory factoryImpl = new Factory();
-        Factory factory = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ""))));
-        factory.initialize(
-            address(trexFactory),
-            address(salesManager),
-            address(tokenController),
-            address(maxSupplyModule),
-            address(governance)
-        );
-        trexFactory.transferOwnership(address(factory));
-
-        // Common registries proxies bound to TREX IA
-        ClaimTopicsRegistryProxy claimTopicsRegistry = new ClaimTopicsRegistryProxy(address(trexIa));
-        TrustedIssuersRegistryProxy trustedIssuersRegistry = new TrustedIssuersRegistryProxy(address(trexIa));
-        IdentityRegistryStorageProxy irsProxy = new IdentityRegistryStorageProxy(address(trexIa));
-        ModularComplianceProxy modularCompliance = new ModularComplianceProxy(address(trexIa));
-        IdentityRegistryProxy irProxy = new IdentityRegistryProxy(
-            address(trexIa), address(trustedIssuersRegistry), address(claimTopicsRegistry), address(irsProxy)
-        );
-
-        // Bind IRS to IR and transfer ownership to TREXFactory
-        IdentityRegistryStorage(address(irsProxy)).bindIdentityRegistry(address(irProxy));
-        IdentityRegistryStorage(address(irsProxy)).transferOwnership(address(trexFactory));
-        idFactory.transferOwnership(address(gateway));
-
-        // Claim/issuer registries owned by TREXFactory for governance operations
-        ClaimTopicsRegistry(address(claimTopicsRegistry)).transferOwnership(address(trexFactory));
-        TrustedIssuersRegistry(address(trustedIssuersRegistry)).transferOwnership(address(trexFactory));
-
-        // Hand IR ownership to multisig so agents can be managed
-        IdentityRegistry(address(irProxy)).transferOwnership(a.multisig);
-
-        ClaimIssuer claimIssuerContract = new ClaimIssuer(a.claimIssuer);
-
-        Protocol memory result;
         result.accessManager = IAccessManager(accessManager);
         result.governance = IGovernance(governance);
-        result.salesManager = salesManager;
-        result.tokenController = tokenController;
-        result.factory = factory;
-        result.trexFactory = trexFactory;
-        result.maxSupplyModule = maxSupplyModule;
-        result.identityRegistry = IdentityRegistry(address(irProxy));
+    }
+
+    function _deployManagedProxies(Protocol memory result) internal {
+        address governance = address(result.governance);
+
+        SalesManager salesManagerImpl = new SalesManager();
+        result.salesManager = SalesManager(address(new ERC1967Proxy(address(salesManagerImpl), "")));
+        result.salesManager.initialize(governance);
+
+        TokenController tokenControllerImpl = new TokenController();
+        result.tokenController = TokenController(address(new ERC1967Proxy(address(tokenControllerImpl), "")));
+        result.tokenController.initialize(governance);
+
+        result.maxSupplyModule = new MaxSupplyModule();
+
+        Factory factoryImpl = new Factory();
+        result.factory = Factory(payable(address(new ERC1967Proxy(address(factoryImpl), ""))));
+        result.factory
+            .initialize(
+                address(result.trexFactory),
+                address(result.salesManager),
+                address(result.tokenController),
+                address(result.maxSupplyModule),
+                governance
+            );
+        result.trexFactory.transferOwnership(address(result.factory));
+    }
+
+    function _deployRegistryStack(Protocol memory result, TREXImplementationAuthority trexIa) internal {
+        result.claimTopicsRegistry = new ClaimTopicsRegistryProxy(address(trexIa));
+        result.trustedIssuersRegistry = new TrustedIssuersRegistryProxy(address(trexIa));
+        IdentityRegistryStorageProxy irsProxy = new IdentityRegistryStorageProxy(address(trexIa));
         result.identityRegistryStorage = IdentityRegistryStorage(address(irsProxy));
-        result.gateway = gateway;
-        result.idFactory = idFactory;
-        result.claimIssuer = claimIssuerContract;
-        result.claimTopicsRegistry = claimTopicsRegistry;
-        result.trustedIssuersRegistry = trustedIssuersRegistry;
-        result.modularCompliance = modularCompliance;
-        return result;
+        result.modularCompliance = new ModularComplianceProxy(address(trexIa));
+        IdentityRegistryProxy irProxy = new IdentityRegistryProxy(
+            address(trexIa),
+            address(result.trustedIssuersRegistry),
+            address(result.claimTopicsRegistry),
+            address(irsProxy)
+        );
+        result.identityRegistry = IdentityRegistry(address(irProxy));
+    }
+
+    function _finalizeOwnership(Protocol memory result, address multisig) internal {
+        address trexFactory = address(result.trexFactory);
+        result.identityRegistryStorage.bindIdentityRegistry(address(result.identityRegistry));
+        result.identityRegistryStorage.transferOwnership(trexFactory);
+        result.idFactory.transferOwnership(address(result.gateway));
+        ClaimTopicsRegistry(address(result.claimTopicsRegistry)).transferOwnership(trexFactory);
+        TrustedIssuersRegistry(address(result.trustedIssuersRegistry)).transferOwnership(trexFactory);
+        result.identityRegistry.transferOwnership(multisig);
     }
 
     function defaultRoleSetup(Protocol memory p, Accounts memory a) internal {
