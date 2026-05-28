@@ -5,6 +5,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
 import {IIdentity} from "@onchain-id/solidity/contracts/interface/IIdentity.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
+import {IFactory} from "contracts/IFactory.sol";
 
 import {Protocol} from "../fixtures/ProtocolFixture.sol";
 
@@ -25,17 +26,19 @@ library ShareTestUtils {
         // deploy share through Factory
         p.factory
             .createShare(
-                name,
-                symbol,
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                maxSupply
+                IFactory.CreateShareParams({
+                    name: name,
+                    symbol: symbol,
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: maxSupply
+                })
             );
 
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
@@ -57,17 +60,19 @@ library ShareTestUtils {
 
         p.factory
             .createShare(
-                name,
-                symbol,
-                decimals,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                maxSupply
+                IFactory.CreateShareParams({
+                    name: name,
+                    symbol: symbol,
+                    decimals: decimals,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: maxSupply
+                })
             );
 
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());

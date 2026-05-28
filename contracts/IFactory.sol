@@ -71,38 +71,28 @@ interface IFactory {
      */
     function maxSupplyModule() external view returns (address);
 
+    /// @notice Parameters for {createShare}
+    struct CreateShareParams {
+        string name;
+        string symbol;
+        uint8 decimals;
+        address owner;
+        address[] tokenAgents;
+        address[] irAgents;
+        address irs;
+        uint256[] claimTopics;
+        address[] issuers;
+        uint256[][] issuerClaims;
+        uint256 maxSupply;
+    }
+
     /**
-     * @notice Deploy a new token suite (share) with minimal required parameters
-     * @dev For role values, see Governance.sol constants
-     * @dev If _irs is zero, TREXFactory will deploy a fresh IRS; otherwise IRS must be owned by TREXFactory
-     * @dev function automatically sets token agents to {tokenController, salesManager}
-     * @param _name Token name
-     * @param _symbol Token symbol
-     * @param _decimals Token decimals
-     * @param _owner Owner of all deployed share contracts
-     * @param _tokenAgents Must be empty (custom token agents require deployShareSuite)
-     * @param _irAgents Identity registry agent addresses (max 5)
-     * @param _irs Optional shared IdentityRegistryStorage address (0 to deploy new)
-     * @param _claimTopics Required claim topics for verification (max 5)
-     * @param _issuers Trusted issuers ONCHAINID addresses (max 5)
-     * @param _issuerClaims Per-issuer allowed claim topics (length must match issuers)
-     * @param _maxSupply Circulating supply cap for the share; must be greater than zero
-     * @return tokenAddr The deployed token address
-     * @dev If _irs is zero, TREXFactory will deploy a fresh IRS; otherwise IRS must be owned by TREXFactory
+     * @notice Deploy a standard ERC-3643 share (TokenController + SalesManager as the only agents,
+     *         MaxSupplyModule enforced). `params.tokenAgents` must be empty.
+     * @param params See {CreateShareParams}
+     * @return tokenAddr The deployed share token address
      */
-    function createShare(
-        string calldata _name,
-        string calldata _symbol,
-        uint8 _decimals,
-        address _owner,
-        address[] calldata _tokenAgents,
-        address[] calldata _irAgents,
-        address _irs,
-        uint256[] calldata _claimTopics,
-        address[] calldata _issuers,
-        uint256[][] calldata _issuerClaims,
-        uint256 _maxSupply
-    ) external returns (address);
+    function createShare(CreateShareParams calldata params) external returns (address tokenAddr);
 
     /**
      * @notice Forward deployment to TREXFactory with a custom salt

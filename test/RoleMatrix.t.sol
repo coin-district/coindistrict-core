@@ -6,6 +6,7 @@ import {ProtocolFixture, Protocol, Accounts, RoleIds, IUUPSUpgradeableLike} from
 import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
 import {SalesManager} from "contracts/SalesManager.sol";
 import {Factory} from "contracts/Factory.sol";
+import {IFactory} from "contracts/IFactory.sol";
 import {TokenController} from "contracts/TokenController.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 import {MockToken} from "contracts/mocks/MockToken.sol";
@@ -125,17 +126,19 @@ contract RoleMatrixTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_NotAuthorized"));
         p.factory
             .createShare(
-                "UPG",
-                "UPG",
-                0,
-                acc.multisig,
-                new address[](0),
-                _single(acc.identityRegistryAgent),
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
+                IFactory.CreateShareParams({
+                    name: "UPG",
+                    symbol: "UPG",
+                    decimals: 0,
+                    owner: acc.multisig,
+                    tokenAgents: new address[](0),
+                    irAgents: _single(acc.identityRegistryAgent),
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 1000
+                })
             );
     }
 

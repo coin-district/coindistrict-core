@@ -13,6 +13,7 @@ import {
     IdentityRegistryStorage
 } from "@erc3643org/erc-3643/contracts/registry/implementation/IdentityRegistryStorage.sol";
 import {Factory} from "contracts/Factory.sol";
+import {IFactory} from "contracts/IFactory.sol";
 import {IClaimIssuer} from "@onchain-id/solidity/contracts/interface/IClaimIssuer.sol";
 import {ClaimTopicsRegistry} from "@erc3643org/erc-3643/contracts/registry/implementation/ClaimTopicsRegistry.sol";
 import {
@@ -167,17 +168,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "UP",
-                "UP",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "UP",
+                    symbol: "UP",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         MaxSupplyModule newModule = new MaxSupplyModule();
@@ -213,17 +216,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_NotAuthorized"));
         p.factory
             .createShare(
-                "ROLE",
-                "ROL",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "ROLE",
+                    symbol: "ROL",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -237,17 +242,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_NotAuthorized"));
         p.factory
             .createShare(
-                "R1",
-                "R1",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "R1",
+                    symbol: "R1",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         // multisig (admin) grants role
@@ -258,17 +265,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(attacker);
         p.factory
             .createShare(
-                "R2",
-                "R2",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "R2",
+                    symbol: "R2",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         // revoke and ensure revert
@@ -278,17 +287,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_NotAuthorized"));
         p.factory
             .createShare(
-                "R3",
-                "R3",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "R3",
+                    symbol: "R3",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -308,11 +319,8 @@ contract FactoryTest is Test, ProtocolFixture {
         // allow createShare selector on rogue so it passes governance check
         address attacker = vm.addr(77);
         vm.startPrank(multisig);
-        _setRoleForSelector(
-            address(rogue),
-            "createShare(string,string,uint8,address,address[],address[],address,uint256[],address[],uint256[][],uint256)",
-            roles.shareDeployer
-        );
+        p.accessManager
+            .setTargetFunctionRole(address(rogue), _toSingle(Factory.createShare.selector), roles.shareDeployer);
         p.accessManager.grantRole(roles.shareDeployer, attacker, 0);
         vm.stopPrank();
 
@@ -320,17 +328,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(attacker);
         vm.expectRevert(bytes("Factory_NotOwnerOfTREXFactory"));
         rogue.createShare(
-            "R",
-            "R",
-            0,
-            multisig,
-            tokenAgents,
-            irAgents,
-            address(p.identityRegistryStorage),
-            new uint256[](0),
-            new address[](0),
-            new uint256[][](0),
-            DEFAULT_MAX_SUPPLY
+            IFactory.CreateShareParams({
+                name: "R",
+                symbol: "R",
+                decimals: 0,
+                owner: multisig,
+                tokenAgents: tokenAgents,
+                irAgents: irAgents,
+                irs: address(p.identityRegistryStorage),
+                claimTopics: new uint256[](0),
+                issuers: new address[](0),
+                issuerClaims: new uint256[][](0),
+                maxSupply: DEFAULT_MAX_SUPPLY
+            })
         );
     }
 
@@ -340,17 +350,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_MaxSupplyRequired"));
         p.factory
             .createShare(
-                "ZERO",
-                "ZERO",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                0
+                IFactory.CreateShareParams({
+                    name: "ZERO",
+                    symbol: "ZERO",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 0
+                })
             );
     }
 
@@ -363,17 +375,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_MaxSupplyModuleNotSet"));
         p.factory
             .createShare(
-                "NOM",
-                "NOM",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "NOM",
+                    symbol: "NOM",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -386,17 +400,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_CustomTokenAgentsNotAllowed"));
         p.factory
             .createShare(
-                "N",
-                "S",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "N",
+                    symbol: "S",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -410,17 +426,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_CustomTokenAgentsNotAllowed"));
         p.factory
             .createShare(
-                "SM",
-                "SM",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "SM",
+                    symbol: "SM",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -435,17 +453,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "WITHIRS",
-                "WIR",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(goodIrsProxy),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "WITHIRS",
+                    symbol: "WIR",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(goodIrsProxy),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         // bad IRS not transferred
@@ -455,17 +475,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_IRSNot0OrOwnedByTREXFactory"));
         p.factory
             .createShare(
-                "WITHIRS2",
-                "WIR2",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(badIrsProxy),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "WITHIRS2",
+                    symbol: "WIR2",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(badIrsProxy),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -475,17 +497,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         address tokenAddr = p.factory
             .createShare(
-                "NOIRS",
-                "NIR",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                ZERO,
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "NOIRS",
+                    symbol: "NIR",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: ZERO,
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         assertTrue(tokenAddr != address(0));
@@ -500,17 +524,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_Max5IRAgents"));
         p.factory
             .createShare(
-                "IR6",
-                "IR6",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "IR6",
+                    symbol: "IR6",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -522,17 +548,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_Max5ClaimTopics"));
         p.factory
             .createShare(
-                "C",
-                "I",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                sixClaims,
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "C",
+                    symbol: "I",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: sixClaims,
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -544,17 +572,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_Max5Issuers"));
         p.factory
             .createShare(
-                "C2",
-                "I2",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                issuers,
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "C2",
+                    symbol: "I2",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: issuers,
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -569,17 +599,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_ClaimIssuerLengthMismatch"));
         p.factory
             .createShare(
-                "C3",
-                "I3",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                oneIssuer,
-                issuerClaims,
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "C3",
+                    symbol: "I3",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: oneIssuer,
+                    issuerClaims: issuerClaims,
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         uint256[][] memory oneIssuerClaim = new uint256[][](1);
@@ -588,17 +620,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.expectRevert(bytes("Factory_ClaimIssuerLengthMismatch"));
         p.factory
             .createShare(
-                "C4",
-                "I4",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                oneIssuerClaim,
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "C4",
+                    symbol: "I4",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: oneIssuerClaim,
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -610,17 +644,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         address tokenAddr = p.factory
             .createShare(
-                "ACME",
-                "ACM",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "ACME",
+                    symbol: "ACM",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         uint256 lastId = p.factory.shareIdIndex();
@@ -635,32 +671,36 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "X",
-                "X",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "X",
+                    symbol: "X",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "Y",
-                "Y",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Y",
+                    symbol: "Y",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         assertEq(p.factory.shareIdIndex(), beforeIndex + 2);
@@ -672,33 +712,37 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "Share1",
-                "SHR1",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Share1",
+                    symbol: "SHR1",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "Share2",
-                "SHR2",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Share2",
+                    symbol: "SHR2",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         assertEq(p.factory.shareIdIndex(), 2);
@@ -710,33 +754,37 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         address firstToken = p.factory
             .createShare(
-                "Total",
-                "TOT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Total",
+                    symbol: "TOT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         vm.prank(factoryShareDeployer);
         address secondToken = p.factory
             .createShare(
-                "Total",
-                "TOTA",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Total",
+                    symbol: "TOTA",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         assertEq(p.factory.shareIdIndex(), 2);
@@ -749,34 +797,38 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "Total",
-                "TOT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Total",
+                    symbol: "TOT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         vm.prank(factoryShareDeployer);
         vm.expectRevert(bytes("Factory_SymbolAlreadyUsed"));
         p.factory
             .createShare(
-                "Totality",
-                "TOT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "Totality",
+                    symbol: "TOT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -788,17 +840,19 @@ contract FactoryTest is Test, ProtocolFixture {
         emit ShareCreated(1, address(0), "EVT", "EVT", 0);
         p.factory
             .createShare(
-                "EVT",
-                "EVT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "EVT",
+                    symbol: "EVT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
     }
 
@@ -808,17 +862,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "D6",
-                "D6",
-                6,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "D6",
+                    symbol: "D6",
+                    decimals: 6,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
@@ -831,17 +887,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "D18",
-                "D18",
-                18,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "D18",
+                    symbol: "D18",
+                    decimals: 18,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
@@ -863,17 +921,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "CLM",
-                "CLM",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                topics,
-                issuers,
-                issuerClaims,
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "CLM",
+                    symbol: "CLM",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: topics,
+                    issuers: issuers,
+                    issuerClaims: issuerClaims,
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
@@ -897,17 +957,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "AGT",
-                "AGT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "AGT",
+                    symbol: "AGT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
@@ -921,17 +983,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "MNT",
-                "MNT",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                DEFAULT_MAX_SUPPLY
+                IFactory.CreateShareParams({
+                    name: "MNT",
+                    symbol: "MNT",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: DEFAULT_MAX_SUPPLY
+                })
             );
 
         Token token = Token(p.factory.idToShare(p.factory.shareIdIndex()));
@@ -944,17 +1008,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "POST",
-                "POST",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                777
+                IFactory.CreateShareParams({
+                    name: "POST",
+                    symbol: "POST",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 777
+                })
             );
 
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
@@ -992,17 +1058,19 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(factoryShareDeployer);
         p.factory
             .createShare(
-                "CAP",
-                "CAP",
-                0,
-                multisig,
-                tokenAgents,
-                irAgents,
-                address(p.identityRegistryStorage),
-                new uint256[](0),
-                new address[](0),
-                new uint256[][](0),
-                1000
+                IFactory.CreateShareParams({
+                    name: "CAP",
+                    symbol: "CAP",
+                    decimals: 0,
+                    owner: multisig,
+                    tokenAgents: tokenAgents,
+                    irAgents: irAgents,
+                    irs: address(p.identityRegistryStorage),
+                    claimTopics: new uint256[](0),
+                    issuers: new address[](0),
+                    issuerClaims: new uint256[][](0),
+                    maxSupply: 1000
+                })
             );
 
         address tokenAddr = p.factory.idToShare(p.factory.shareIdIndex());
@@ -1213,11 +1281,6 @@ contract FactoryTest is Test, ProtocolFixture {
     }
 
     // Helpers
-
-    function _setRoleForSelector(address target, string memory signature, uint64 roleId) internal {
-        bytes4 selector = bytes4(keccak256(bytes(signature)));
-        p.accessManager.setTargetFunctionRole(target, _toSingle(selector), roleId);
-    }
 
     function _defaultAgents() internal view returns (address[] memory tokenAgents, address[] memory irAgents) {
         tokenAgents = new address[](0);
