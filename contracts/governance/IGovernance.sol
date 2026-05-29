@@ -10,6 +10,9 @@ pragma solidity 0.8.17;
  * @dev Role IDs are defined off-chain in config/role-and-delays.json
  */
 interface IGovernance {
+    /// @notice Reverts when the AccessManager address provided to the constructor is zero
+    error InvalidAccessManager();
+
     /**
      * @notice Check if a caller has permission to execute a function on a target contract
      * @param caller The address attempting to call the function
