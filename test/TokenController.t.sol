@@ -7,6 +7,7 @@ import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
 import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 import {TokenController} from "contracts/TokenController.sol";
+import {ITokenController} from "contracts/ITokenController.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract TokenControllerTest is Test, ProtocolFixture {
@@ -70,7 +71,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
     function test_TokenController_initialize_rejects_zero_governance() public {
         TokenController impl = new TokenController();
         TokenController proxy = TokenController(address(new ERC1967Proxy(address(impl), "")));
-        vm.expectRevert(bytes("TokenController_InvalidGovernance"));
+        vm.expectRevert(ITokenController.InvalidGovernance.selector);
         proxy.initialize(address(0));
     }
 
@@ -88,7 +89,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         address attacker = vm.addr(77);
         TokenController newImpl = new TokenController();
         vm.prank(attacker);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.upgradeTo(address(newImpl));
     }
 
@@ -141,7 +142,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         p.accessManager.revokeRole(minterRole, userA);
 
         vm.prank(userA);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.mint(address(token), userA, 1);
     }
 
@@ -151,15 +152,15 @@ contract TokenControllerTest is Test, ProtocolFixture {
         uint256 caps = tc.PAUSABLE_BIT() | tc.BURNABLE_BIT() | tc.FORCE_TRANSFERABLE_BIT() | tc.RECOVERABLE_BIT();
         p.tokenController.setTokenCapsInitial(address(token), caps);
 
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.pause(address(token));
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.unpause(address(token));
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.burn(address(token), userA, 1);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.forceTransfer(address(token), userA, userB, 1);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.recover(address(token), userA, userB, address(0));
         vm.stopPrank();
     }
@@ -180,7 +181,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         assertFalse(p.tokenController.isMintable(address(token)));
 
         vm.startPrank(factoryShareDeployer);
-        vm.expectRevert(bytes("TokenController_CapsAlreadySet"));
+        vm.expectRevert(ITokenController.CapsAlreadySet.selector);
         p.tokenController.setTokenCapsInitial(address(token), mintableBit);
         vm.stopPrank();
 
@@ -210,14 +211,14 @@ contract TokenControllerTest is Test, ProtocolFixture {
         uint256 mintableBit = tc.MINTABLE_BIT();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.setTokenCapsInitial(address(token), pausableBit);
 
         vm.prank(factoryShareDeployer);
         p.tokenController.setTokenCapsInitial(address(token), pausableBit);
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.setTokenCaps(address(token), mintableBit);
     }
 
@@ -228,7 +229,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.startPrank(multisig);
         uint256 initializedBit = tc.INITIALIZED_BIT();
         uint256 mintableBit = tc.MINTABLE_BIT();
-        vm.expectRevert(bytes("TokenController_CapsNotInitialized"));
+        vm.expectRevert(ITokenController.CapsNotInitialized.selector);
         p.tokenController.setTokenCaps(address(token), mintableBit);
         vm.stopPrank();
 
@@ -322,7 +323,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("pause capability disabled"));
+        vm.expectRevert(ITokenController.PauseCapabilityDisabled.selector);
         p.tokenController.pause(address(token));
     }
 
@@ -333,14 +334,14 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("pause capability disabled"));
+        vm.expectRevert(ITokenController.PauseCapabilityDisabled.selector);
         p.tokenController.unpause(address(token));
     }
 
     function test_pause_with_default_zero_caps_reverts() public {
         address fakeToken = address(0xDEAD);
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("pause capability disabled"));
+        vm.expectRevert(ITokenController.PauseCapabilityDisabled.selector);
         p.tokenController.pause(fakeToken);
     }
 
@@ -375,7 +376,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("mint capability disabled"));
+        vm.expectRevert(ITokenController.MintCapabilityDisabled.selector);
         p.tokenController.mint(address(token), userA, 1);
     }
 
@@ -386,7 +387,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("burn capability disabled"));
+        vm.expectRevert(ITokenController.BurnCapabilityDisabled.selector);
         p.tokenController.burn(address(token), userA, 1);
     }
 
@@ -424,7 +425,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("force transfer capability disabled"));
+        vm.expectRevert(ITokenController.ForceTransferCapabilityDisabled.selector);
         p.tokenController.forceTransfer(address(token), userA, userB, 1);
     }
 
@@ -474,7 +475,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("freeze capability disabled"));
+        vm.expectRevert(ITokenController.FreezeCapabilityDisabled.selector);
         p.tokenController.setFrozen(address(token), userA, true);
     }
 
@@ -516,7 +517,7 @@ contract TokenControllerTest is Test, ProtocolFixture {
         vm.stopPrank();
 
         vm.prank(tokenAgent);
-        vm.expectRevert(bytes("recover capability disabled"));
+        vm.expectRevert(ITokenController.RecoverCapabilityDisabled.selector);
         p.tokenController.recover(address(token), userA, userB, address(0));
     }
 }

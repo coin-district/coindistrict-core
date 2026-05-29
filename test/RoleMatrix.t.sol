@@ -8,6 +8,7 @@ import {SalesManager} from "contracts/SalesManager.sol";
 import {Factory} from "contracts/Factory.sol";
 import {IFactory} from "contracts/IFactory.sol";
 import {TokenController} from "contracts/TokenController.sol";
+import {ITokenController} from "contracts/ITokenController.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 import {MockToken} from "contracts/mocks/MockToken.sol";
 import {ITREXFactory} from "@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol";
@@ -79,7 +80,7 @@ contract RoleMatrixTest is Test, ProtocolFixture {
         vm.prank(acc.factoryShareDeployer);
         Token token = p.createShare(acc.multisig, acc.identityRegistryAgent, "RMX", "RMX", 100);
         vm.prank(acc.user1);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.setFrozen(address(token), acc.buyer, true);
     }
 
@@ -87,7 +88,7 @@ contract RoleMatrixTest is Test, ProtocolFixture {
         vm.prank(acc.factoryShareDeployer);
         Token token = p.createShare(acc.multisig, acc.identityRegistryAgent, "RMF", "RMF", 100);
         vm.prank(acc.user2);
-        vm.expectRevert(bytes("TokenController_NotAuthorized"));
+        vm.expectRevert(ITokenController.NotAuthorized.selector);
         p.tokenController.mint(address(token), acc.buyer, 1);
     }
 

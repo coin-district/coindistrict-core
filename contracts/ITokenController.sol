@@ -10,6 +10,19 @@ pragma solidity 0.8.17;
  * @dev For role values, see Governance.sol constants
  */
 interface ITokenController {
+    error InvalidGovernance();
+    error NotAuthorized();
+    error CapsAlreadySet();
+    error CapsNotInitialized();
+    error ForcedTransferFailed();
+    error RecoveryFailed();
+    error PauseCapabilityDisabled();
+    error MintCapabilityDisabled();
+    error BurnCapabilityDisabled();
+    error ForceTransferCapabilityDisabled();
+    error FreezeCapabilityDisabled();
+    error RecoverCapabilityDisabled();
+
     /**
      * @notice Emitted when a token's capability bitmask is updated
      * @param token The ERC-3643 token address
