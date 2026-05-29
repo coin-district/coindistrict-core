@@ -15,6 +15,9 @@ import {AccessManager} from "@openzeppelin/contracts-v5/access/manager/AccessMan
  * This contract implements the same interface but cannot import it due to version mismatch.
  */
 contract Governance {
+    /// @notice Reverts when the AccessManager address provided to the constructor is zero
+    error InvalidAccessManager();
+
     AccessManager private immutable _ACCESS_MANAGER;
 
     /**
@@ -22,7 +25,7 @@ contract Governance {
      * @param accessManager_ The AccessManager contract address
      */
     constructor(address accessManager_) {
-        require(accessManager_ != address(0), "Governance_InvalidAccessManager");
+        if (accessManager_ == address(0)) revert InvalidAccessManager();
         _ACCESS_MANAGER = AccessManager(accessManager_);
     }
 

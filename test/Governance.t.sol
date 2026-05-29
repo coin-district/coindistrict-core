@@ -37,7 +37,7 @@ contract GovernanceTest is Test {
     function test_constructor_rejects_zero_access_manager() public {
         bytes memory creation = vm.getCode("contracts/governance/Governance.sol:Governance");
         bytes memory bytecode = abi.encodePacked(creation, abi.encode(address(0)));
-        vm.expectRevert(bytes("Governance_InvalidAccessManager"));
+        vm.expectRevert(IGovernance.InvalidAccessManager.selector);
         deployer.deploy(bytecode);
     }
 
