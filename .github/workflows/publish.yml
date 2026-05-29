@@ -4,16 +4,22 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: pnpm/action-setup@v4
         with:
@@ -21,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "pnpm"
           registry-url: "https://npm.pkg.github.com"
           scope: "@coin-district"
@@ -34,13 +40,16 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Test
+      - name: Test (ci profile — deep fuzz/invariant)
         run: forge test
+        env:
+          FOUNDRY_PROFILE: ci
 
       - name: Build + generate ABIs
         run: pnpm prepublishOnly
 
       - name: Publish to GitHub Packages
+        if: startsWith(github.ref, 'refs/tags/')
         run: pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
