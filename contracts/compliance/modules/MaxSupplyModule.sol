@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import {AbstractModule} from "@erc3643org/erc-3643/contracts/compliance/modular/modules/AbstractModule.sol";
+import {IMaxSupplyModule} from "./IMaxSupplyModule.sol";
 
 /**
  * @title MaxSupplyModule
@@ -18,10 +19,7 @@ contract MaxSupplyModule is AbstractModule {
 
     function setMaxSupply(uint256 maxSupply) external onlyComplianceCall {
         uint256 currentSupply = _currentSupplyByCompliance[msg.sender];
-        require(
-            maxSupply == 0 || maxSupply >= currentSupply,
-            "MaxSupplyModule: new max supply cannot be below current supply"
-        );
+        if (maxSupply != 0 && maxSupply < currentSupply) revert IMaxSupplyModule.MaxSupplyBelowCurrentSupply();
         _maxSupplyByCompliance[msg.sender] = maxSupply;
     }
 
@@ -65,6 +63,8 @@ contract MaxSupplyModule is AbstractModule {
         _currentSupplyByCompliance[msg.sender] = cur - _value;
     }
 
+    // --- Views ---
+
     /**
      * @dev The check blocks minting (from == address(0)) if current + value exceeds max.
      */
@@ -94,6 +94,16 @@ contract MaxSupplyModule is AbstractModule {
         return true;
     }
 
+    function getMaxSupply(address compliance) external view returns (uint256) {
+        return _maxSupplyByCompliance[compliance];
+    }
+
+    function getCurrentSupply(address compliance) external view returns (uint256) {
+        return _currentSupplyByCompliance[compliance];
+    }
+
+    // --- Pures ---
+
     function isPlugAndPlay() external pure override returns (bool) {
         return true;
     }
@@ -111,15 +121,5 @@ contract MaxSupplyModule is AbstractModule {
 
     function name() external pure override returns (string memory _name) {
         return "MaxSupplyModule";
-    }
-
-    // --- Views ---
-
-    function getMaxSupply(address compliance) external view returns (uint256) {
-        return _maxSupplyByCompliance[compliance];
-    }
-
-    function getCurrentSupply(address compliance) external view returns (uint256) {
-        return _currentSupplyByCompliance[compliance];
     }
 }

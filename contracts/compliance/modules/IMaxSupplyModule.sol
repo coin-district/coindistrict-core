@@ -10,6 +10,9 @@ pragma solidity 0.8.17;
  * @dev All reads/writes are scoped to a given {ModularCompliance} binding (the compliance contract is used as key).
  */
 interface IMaxSupplyModule {
+    /// @notice Reverts when the new cap is non-zero and below the currently tracked supply.
+    error MaxSupplyBelowCurrentSupply();
+
     /**
      * @notice Owner-only (compliance) mutation to configure the maximum supply.
      * @dev Setting the value to zero removes the cap. Reverts if the new cap is below the tracked supply.
