@@ -4,13 +4,11 @@ pragma solidity 0.8.17;
 import {Test} from "forge-std/Test.sol";
 import {ProtocolFixture, Protocol, Accounts, RoleIds, IUUPSUpgradeableLike} from "./fixtures/ProtocolFixture.sol";
 import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
-import {SalesManager} from "contracts/SalesManager.sol";
+import {ISalesManager} from "contracts/ISalesManager.sol";
 import {Factory} from "contracts/Factory.sol";
 import {IFactory} from "contracts/IFactory.sol";
-import {TokenController} from "contracts/TokenController.sol";
 import {ITokenController} from "contracts/ITokenController.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
-import {MockToken} from "contracts/mocks/MockToken.sol";
 import {ITREXFactory} from "@erc3643org/erc-3643/contracts/factory/ITREXFactory.sol";
 
 contract RoleMatrixTest is Test, ProtocolFixture {
@@ -32,46 +30,57 @@ contract RoleMatrixTest is Test, ProtocolFixture {
 
     function test_salesConfig_cannot_create_or_operate_sales() public {
         vm.startPrank(acc.salesManagerSalesConfig);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.createSale(address(1), _single(address(2)), acc.multisig, 1, 1e8, 100, 200);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.cancelSale(0);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.pauseSale(0);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.updateSalePriceUsdPerShare(0, 1e8);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.fulfillFiatOrder(0, 1, acc.buyer, bytes32(uint256(1)));
         vm.stopPrank();
     }
 
     function test_salesOperator_cannot_configure_or_withdraw() public {
         vm.startPrank(acc.salesManagerSalesOperator);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.setAllowedPaymentToken(address(1), true);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.setPaymentTokenOracle(address(1), address(2), 1 hours, type(uint256).max);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.withdrawFunds(_single(address(1)), acc.multisig, _singleUint(1));
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.rescueTokens(address(1), acc.multisig, 1);
         vm.stopPrank();
     }
 
     function test_fundsAdmin_cannot_create_or_pause_sales() public {
         vm.startPrank(acc.salesManagerFundsAdmin);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.createSale(address(1), _single(address(2)), acc.multisig, 1, 1e8, 100, 200);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.setEmergencyPause();
         vm.stopPrank();
     }
 
     function test_fiatOrder_cannot_withdraw_or_update_sales() public {
         vm.startPrank(acc.fiatOrderSigner);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.withdrawFunds(_single(address(1)), acc.multisig, _singleUint(1));
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.updateSalePriceUsdPerShare(0, 1e8);
         vm.stopPrank();
     }

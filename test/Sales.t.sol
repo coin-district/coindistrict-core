@@ -21,6 +21,7 @@ import {MockAggregatorV3} from "contracts/mocks/MockAggregatorV3.sol";
 import {MaliciousToken} from "./mocks/ReentrantBuyer.sol";
 import {IModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modular/IModularCompliance.sol";
 import {SalesManager} from "contracts/SalesManager.sol";
+import {ISalesManager} from "contracts/ISalesManager.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MaxSupplyModule} from "contracts/compliance/modules/MaxSupplyModule.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -43,7 +44,7 @@ contract SalesTest is SalesTestHelpers {
     function test_SalesManager_initialize_rejects_zero_governance() public {
         SalesManager impl = new SalesManager();
         SalesManager proxy = SalesManager(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("SalesManager_InvalidGovernance"));
+        vm.expectRevert(ISalesManager.InvalidGovernance.selector);
         proxy.initialize(address(0));
     }
 
@@ -61,7 +62,7 @@ contract SalesTest is SalesTestHelpers {
         address attacker = vm.addr(77);
         SalesManager newImpl = new SalesManager();
         vm.prank(attacker);
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         p.salesManager.upgradeTo(address(newImpl));
     }
 
@@ -82,7 +83,7 @@ contract SalesTest is SalesTestHelpers {
     function test_SalesManager_upgradeToAndCall_unauthorized_reverts() public {
         SalesManager newImpl = new SalesManager();
         vm.prank(vm.addr(99));
-        vm.expectRevert(bytes("SalesManager_NotAuthorized"));
+        vm.expectRevert(ISalesManager.NotAuthorized.selector);
         IUUPSUpgradeableLike(address(p.salesManager)).upgradeToAndCall(address(newImpl), "");
     }
 
@@ -115,47 +116,47 @@ contract SalesTest is SalesTestHelpers {
         uint64 nowTs = uint64(block.timestamp);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_InvalidAddress"));
+        vm.expectRevert(ISalesManager.InvalidAddress.selector);
         p.salesManager
             .createSale(ZERO, _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes("Sale_InvalidRecipient"));
+        vm.expectRevert(ISalesManager.InvalidRecipient.selector);
         p.salesManager
             .createSale(address(token), _single(address(stable)), ZERO, 10, priceUsdPerShare, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes("Sale_ZeroSupply"));
+        vm.expectRevert(ISalesManager.ZeroSupply.selector);
         p.salesManager
             .createSale(
                 address(token), _single(address(stable)), multisig, 0, priceUsdPerShare, nowTs + 100, nowTs + 200
             );
 
-        vm.expectRevert(bytes("Sale_ZeroPrice"));
+        vm.expectRevert(ISalesManager.ZeroPrice.selector);
         p.salesManager.createSale(address(token), _single(address(stable)), multisig, 10, 0, nowTs + 100, nowTs + 200);
 
-        vm.expectRevert(bytes("Sale_InvalidStart"));
+        vm.expectRevert(ISalesManager.InvalidStart.selector);
         p.salesManager
             .createSale(address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs, nowTs + 200);
 
-        vm.expectRevert(bytes("Sale_InvalidStart"));
+        vm.expectRevert(ISalesManager.InvalidStart.selector);
         p.salesManager
             .createSale(
                 address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs - 1, nowTs + 200
             );
 
-        vm.expectRevert(bytes("Sale_InvalidDeadline"));
+        vm.expectRevert(ISalesManager.InvalidDeadline.selector);
         p.salesManager
             .createSale(
                 address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 100
             );
 
-        vm.expectRevert(bytes("Sale_InvalidDeadline"));
+        vm.expectRevert(ISalesManager.InvalidDeadline.selector);
         p.salesManager
             .createSale(
                 address(token), _single(address(stable)), multisig, 10, priceUsdPerShare, nowTs + 100, nowTs + 50
             );
 
         // exceeding cap
-        vm.expectRevert(bytes("Sale_SupplyExceedsCap"));
+        vm.expectRevert(ISalesManager.SupplyExceedsCap.selector);
         p.salesManager
             .createSale(
                 address(token), _single(address(stable)), multisig, 2000, priceUsdPerShare, nowTs + 100, nowTs + 1000
@@ -237,8 +238,8 @@ contract SalesTest is SalesTestHelpers {
         vm.stopPrank();
 
         assertEq(token.balanceOf(buyer), 10);
-        (,,, uint256 remaining,,,,,,) = p.salesManager.getSale(saleId);
-        assertEq(remaining, 90);
+        ISalesManager.Sale memory sale = p.salesManager.getSale(saleId);
+        assertEq(sale.remainingSupply, 90);
     }
 
     function test_buy_with_aggregator_decimals_18_scales_down() public {
@@ -357,7 +358,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_InvalidRecipient"));
+        vm.expectRevert(ISalesManager.InvalidRecipient.selector);
         p.salesManager.buy(ctx.saleId, 10, ZERO, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -368,7 +369,7 @@ contract SalesTest is SalesTestHelpers {
         // Try to buy before start - should revert
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_NotStarted"));
+        vm.expectRevert(ISalesManager.SaleNotStarted.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
 
@@ -387,7 +388,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_Ended"));
+        vm.expectRevert(ISalesManager.SaleEnded.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -425,7 +426,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_OracleNotConfigured"));
+        vm.expectRevert(ISalesManager.OracleNotConfigured.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -437,7 +438,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_InvalidPrice"));
+        vm.expectRevert(ISalesManager.InvalidPrice.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -449,7 +450,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_InvalidPrice"));
+        vm.expectRevert(ISalesManager.InvalidPrice.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -463,7 +464,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_InvalidPrice"));
+        vm.expectRevert(ISalesManager.InvalidPrice.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -475,7 +476,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_PriceNotUpdated"));
+        vm.expectRevert(ISalesManager.PriceNotUpdated.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -489,7 +490,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_StalePrice"));
+        vm.expectRevert(ISalesManager.StalePrice.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -517,7 +518,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_PriceAboveCeiling"));
+        vm.expectRevert(ISalesManager.PriceAboveCeiling.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -535,7 +536,7 @@ contract SalesTest is SalesTestHelpers {
         ctx.stable.mint(buyer, type(uint128).max);
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), type(uint128).max);
-        vm.expectRevert(bytes("Sale_PriceAboveCeiling"));
+        vm.expectRevert(ISalesManager.PriceAboveCeiling.selector);
         p.salesManager.buy(ctx.saleId, 1, buyer, address(ctx.stable), type(uint128).max);
         vm.stopPrank();
     }
@@ -586,7 +587,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         fot.approve(address(p.salesManager), 10_000_000); // 10 tokens max
-        vm.expectRevert(bytes("Sale_TransferAmountMismatch"));
+        vm.expectRevert(ISalesManager.TransferAmountMismatch.selector);
         p.salesManager.buy(saleId, 10, buyer, address(fot), 10_000_000);
         vm.stopPrank();
 
@@ -606,7 +607,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
+        vm.expectRevert(ISalesManager.PaymentTokenNotAllowed.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -693,7 +694,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), ceilPayment);
-        vm.expectRevert(bytes("Sale_MaxPaymentExceeded"));
+        vm.expectRevert(ISalesManager.MaxPaymentExceeded.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), maxPayment);
         vm.stopPrank();
     }
@@ -709,7 +710,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), expected);
-        vm.expectRevert(bytes("Sale_MaxPaymentExceeded"));
+        vm.expectRevert(ISalesManager.MaxPaymentExceeded.selector);
         p.salesManager.buy(ctx.saleId, amount, buyer, address(ctx.stable), maxPay);
         vm.stopPrank();
     }
@@ -894,7 +895,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("Sale_NotActive"));
+        vm.expectRevert(ISalesManager.SaleNotActive.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
     }
@@ -909,7 +910,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.cancelSale(ctx.saleId);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_NotActive"));
+        vm.expectRevert(ISalesManager.SaleNotActive.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, keccak256("ref-cancel"));
     }
 
@@ -919,7 +920,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.cancelSale(ctx.saleId);
 
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_DoesNotExist"));
+        vm.expectRevert(ISalesManager.SaleDoesNotExist.selector);
         p.salesManager.cancelSale(ctx.saleId);
     }
 
@@ -936,7 +937,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.pauseSale(ctx.saleId);
 
         vm.startPrank(buyer);
-        vm.expectRevert(bytes("Sale_Paused"));
+        vm.expectRevert(ISalesManager.SalePausedErr.selector);
         p.salesManager.buy(ctx.saleId, 5, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
 
@@ -978,7 +979,7 @@ contract SalesTest is SalesTestHelpers {
         MockToken unallowed = new MockToken("UNL", "UNL", 6);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
+        vm.expectRevert(ISalesManager.PaymentTokenNotAllowed.selector);
         p.salesManager.updateSalePaymentTokensAllowed(ctx.saleId, _single(address(unallowed)));
         vm.stopPrank();
 
@@ -988,7 +989,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.setAllowedPaymentToken(address(unallowed), true);
 
         vm.startPrank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_OracleNotConfigured"));
+        vm.expectRevert(ISalesManager.OracleNotConfigured.selector);
         p.salesManager.updateSalePaymentTokensAllowed(ctx.saleId, _single(address(unallowed)));
         vm.stopPrank();
 
@@ -1000,9 +1001,9 @@ contract SalesTest is SalesTestHelpers {
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.updateSalePaymentTokensAllowed(ctx.saleId, _single(address(unallowed)));
-        (, address[] memory allowed,,,,,,,,) = p.salesManager.getSale(ctx.saleId);
-        assertEq(allowed.length, 1);
-        assertEq(allowed[0], address(unallowed));
+        ISalesManager.Sale memory sale = p.salesManager.getSale(ctx.saleId);
+        assertEq(sale.paymentTokensAllowed.length, 1);
+        assertEq(sale.paymentTokensAllowed[0], address(unallowed));
     }
 
     function test_updateSalePriceUsdPerShare_affects_next_buy() public {
@@ -1023,13 +1024,13 @@ contract SalesTest is SalesTestHelpers {
     function test_updateSalePriceUsdPerShare_rejects_zero_price() public {
         BasicSaleCtx memory ctx = _setupBasicSale("PRZ", "PRZ", 100, 1e8);
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_ZeroPrice"));
+        vm.expectRevert(ISalesManager.ZeroPrice.selector);
         p.salesManager.updateSalePriceUsdPerShare(ctx.saleId, 0);
     }
 
     function test_updateSalePriceUsdPerShare_reverts_for_nonexistent_sale() public {
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_DoesNotExist"));
+        vm.expectRevert(ISalesManager.SaleDoesNotExist.selector);
         p.salesManager.updateSalePriceUsdPerShare(type(uint256).max, 1e8);
     }
 
@@ -1037,7 +1038,7 @@ contract SalesTest is SalesTestHelpers {
         BasicSaleCtx memory ctx = _setupBasicSale("UDL", "UDL", 50, 1e8);
 
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_InvalidDeadline"));
+        vm.expectRevert(ISalesManager.InvalidDeadline.selector);
         p.salesManager.updateSaleDeadline(ctx.saleId, uint256(type(uint64).max) + 1);
     }
 
@@ -1057,7 +1058,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.pauseSale(ctx.saleId);
 
         vm.startPrank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_Paused"));
+        vm.expectRevert(ISalesManager.SalePausedErr.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, keccak256(bytes("ref")));
         vm.stopPrank();
 
@@ -1067,8 +1068,8 @@ contract SalesTest is SalesTestHelpers {
         vm.prank(fiatOrderSigner);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, keccak256(bytes("ref")));
         assertEq(ctx.token.balanceOf(recipient), 10);
-        (,,, uint256 remaining,,,,,,) = p.salesManager.getSale(ctx.saleId);
-        assertEq(remaining, 40);
+        ISalesManager.Sale memory sale = p.salesManager.getSale(ctx.saleId);
+        assertEq(sale.remainingSupply, 40);
     }
 
     function test_fulfillFiatOrder_zero_amount_reverts() public {
@@ -1078,7 +1079,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_AmountInvalid"));
+        vm.expectRevert(ISalesManager.AmountInvalid.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 0, recipient, keccak256(bytes("ref1")));
     }
 
@@ -1087,7 +1088,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_InvalidRecipient"));
+        vm.expectRevert(ISalesManager.InvalidRecipient.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, ZERO, keccak256(bytes("ref2")));
     }
 
@@ -1098,7 +1099,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_AmountInvalid"));
+        vm.expectRevert(ISalesManager.AmountInvalid.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 11, recipient, keccak256(bytes("ref3")));
     }
 
@@ -1111,7 +1112,7 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(fiatOrderSigner);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, ref);
-        vm.expectRevert(bytes("Sale_FiatOrderReferenceAlreadyFulfilled"));
+        vm.expectRevert(ISalesManager.FiatOrderReferenceAlreadyFulfilled.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 5, recipient, ref);
         vm.stopPrank();
     }
@@ -1148,7 +1149,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.fulfillFiatOrder(saleId0, 10, recipient, ref);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_FiatOrderReferenceAlreadyFulfilled"));
+        vm.expectRevert(ISalesManager.FiatOrderReferenceAlreadyFulfilled.selector);
         p.salesManager.fulfillFiatOrder(saleId1, 10, recipient, ref);
     }
 
@@ -1159,7 +1160,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.start + 1);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_InvalidFiatOrderReference"));
+        vm.expectRevert(ISalesManager.InvalidFiatOrderReference.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, bytes32(0));
     }
 
@@ -1188,7 +1189,7 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.cancelSale(ctx.saleId);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_NotActive"));
+        vm.expectRevert(ISalesManager.SaleNotActive.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, keccak256("ref-after-cancel"));
     }
 
@@ -1198,7 +1199,7 @@ contract SalesTest is SalesTestHelpers {
         p.registerIdentity(vm, identityRegistryAgent, recipient);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_NotStarted"));
+        vm.expectRevert(ISalesManager.SaleNotStarted.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 5, recipient, keccak256("ref-before-start"));
     }
 
@@ -1209,7 +1210,7 @@ contract SalesTest is SalesTestHelpers {
         vm.warp(ctx.deadline + 1);
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("Sale_Ended"));
+        vm.expectRevert(ISalesManager.SaleEnded.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 5, recipient, keccak256("ref-after-deadline"));
     }
 
@@ -1246,7 +1247,7 @@ contract SalesTest is SalesTestHelpers {
 
         // Attempt to rescue allowed payment token - should fail
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Rescue_UseWithdrawFundsForPaymentTokens"));
+        vm.expectRevert(ISalesManager.UseWithdrawFundsForPaymentTokens.selector);
         p.salesManager.rescueTokens(address(allowedToken), recipient, 50_000_000);
         vm.stopPrank();
 
@@ -1283,7 +1284,7 @@ contract SalesTest is SalesTestHelpers {
         randomToken.mint(address(p.salesManager), 1_000_000_000_000_000_000);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Rescue_InvalidRecipient"));
+        vm.expectRevert(ISalesManager.InvalidRecipient.selector);
         p.salesManager.rescueTokens(address(randomToken), ZERO, 100_000_000_000_000_000);
         vm.stopPrank();
     }
@@ -1337,7 +1338,7 @@ contract SalesTest is SalesTestHelpers {
         address recipient = vm.addr(6666);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
+        vm.expectRevert(ISalesManager.PaymentTokenNotAllowed.selector);
         p.salesManager.withdrawFunds(_single(address(unallowedToken)), recipient, _singleUint(500_000_000_000_000_000));
         vm.stopPrank();
 
@@ -1358,7 +1359,7 @@ contract SalesTest is SalesTestHelpers {
         usdc.mint(address(p.salesManager), 100_000_000);
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Rescue_InvalidRecipient"));
+        vm.expectRevert(ISalesManager.InvalidRecipient.selector);
         p.salesManager.withdrawFunds(_single(address(usdc)), ZERO, _singleUint(50_000_000));
         vm.stopPrank();
     }
@@ -1388,7 +1389,7 @@ contract SalesTest is SalesTestHelpers {
         amounts[0] = 50_000_000;
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Sale_LengthMismatch"));
+        vm.expectRevert(ISalesManager.LengthMismatch.selector);
         p.salesManager.withdrawFunds(tokens, recipient, amounts);
         vm.stopPrank();
 
@@ -1424,7 +1425,7 @@ contract SalesTest is SalesTestHelpers {
         amounts[1] = 500_000_000_000_000_000;
 
         vm.startPrank(salesManagerFundsAdmin);
-        vm.expectRevert(bytes("Sale_PaymentTokenNotAllowed"));
+        vm.expectRevert(ISalesManager.PaymentTokenNotAllowed.selector);
         p.salesManager.withdrawFunds(tokens, recipient, amounts);
         vm.stopPrank();
 
@@ -1467,7 +1468,7 @@ contract SalesTest is SalesTestHelpers {
         MockToken s = new MockToken("US3", "US3", 6);
         MockAggregatorV3 o = new MockAggregatorV3(8, 1e8);
         vm.prank(salesManagerSalesConfig);
-        vm.expectRevert(bytes("Sale_InvalidOracleDelay"));
+        vm.expectRevert(ISalesManager.InvalidOracleDelay.selector);
         p.salesManager.setPaymentTokenOracle(address(s), address(o), 59, type(uint256).max);
     }
 
@@ -1475,7 +1476,7 @@ contract SalesTest is SalesTestHelpers {
         MockToken s = new MockToken("US4", "US4", 6);
         MockAggregatorV3 o = new MockAggregatorV3(8, 1e8);
         vm.prank(salesManagerSalesConfig);
-        vm.expectRevert(bytes("Sale_InvalidOracleDelay"));
+        vm.expectRevert(ISalesManager.InvalidOracleDelay.selector);
         p.salesManager.setPaymentTokenOracle(address(s), address(o), 24 hours + 1, type(uint256).max);
     }
 
@@ -1483,7 +1484,7 @@ contract SalesTest is SalesTestHelpers {
         MockToken s = new MockToken("US5", "US5", 6);
         MockAggregatorV3 o = new MockAggregatorV3(8, 1e8);
         vm.prank(salesManagerSalesConfig);
-        vm.expectRevert(bytes("Sale_InvalidMaxPrice"));
+        vm.expectRevert(ISalesManager.InvalidMaxPrice.selector);
         p.salesManager.setPaymentTokenOracle(address(s), address(o), 1 hours, 0);
     }
 
@@ -1500,12 +1501,12 @@ contract SalesTest is SalesTestHelpers {
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
-        vm.expectRevert(bytes("SalesManager_EmergencyPaused"));
+        vm.expectRevert(ISalesManager.EmergencyPausedErr.selector);
         p.salesManager.buy(ctx.saleId, 10, buyer, address(ctx.stable), 10_000_000);
         vm.stopPrank();
 
         vm.prank(fiatOrderSigner);
-        vm.expectRevert(bytes("SalesManager_EmergencyPaused"));
+        vm.expectRevert(ISalesManager.EmergencyPausedErr.selector);
         p.salesManager.fulfillFiatOrder(ctx.saleId, 10, recipient, keccak256("ref-ep"));
     }
 
@@ -1535,14 +1536,14 @@ contract SalesTest is SalesTestHelpers {
         p.salesManager.setEmergencyPause();
 
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("SalesManager_AlreadyPaused"));
+        vm.expectRevert(ISalesManager.EmergencyAlreadyPaused.selector);
         p.salesManager.setEmergencyPause();
 
         vm.prank(salesManagerSalesOperator);
         p.salesManager.unsetEmergencyPause();
 
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("SalesManager_NotPaused"));
+        vm.expectRevert(ISalesManager.EmergencyNotPaused.selector);
         p.salesManager.unsetEmergencyPause();
     }
 
@@ -1631,7 +1632,7 @@ contract SalesTest is SalesTestHelpers {
 
         // createSale rejects 81 because only 80 remain in the token cap (20 minted, not unminted on cancel)
         vm.prank(salesManagerSalesOperator);
-        vm.expectRevert(bytes("Sale_SupplyExceedsCap"));
+        vm.expectRevert(ISalesManager.SupplyExceedsCap.selector);
         p.salesManager.createSale(address(token), _single(address(stable)), multisig, 81, 1e8, start2, deadline2);
 
         // 80 is the exact remaining cap — createSale and the full buy both succeed
@@ -1681,18 +1682,18 @@ contract SalesTest is SalesTestHelpers {
     // Views
 
     function test_getSaleTotalSupply_nonexistent_reverts() public {
-        vm.expectRevert(bytes("Sale_DoesNotExist"));
+        vm.expectRevert(ISalesManager.SaleDoesNotExist.selector);
         p.salesManager.getSaleTotalSupply(type(uint256).max);
     }
 
     function test_getSaleRemainingSupply_nonexistent_reverts() public {
-        vm.expectRevert(bytes("Sale_DoesNotExist"));
+        vm.expectRevert(ISalesManager.SaleDoesNotExist.selector);
         p.salesManager.getSaleRemainingSupply(type(uint256).max);
     }
 
-    function test_getSale_nonexistent_returns_zero_share() public view {
-        (address share,,,,,,,,,) = p.salesManager.getSale(type(uint256).max);
-        assertEq(share, address(0));
+    function test_getSale_nonexistent_reverts() public {
+        vm.expectRevert(ISalesManager.SaleDoesNotExist.selector);
+        p.salesManager.getSale(type(uint256).max);
     }
 
     // Helpers

@@ -29,10 +29,28 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     uint256 private constant MIN_ORACLE_DELAY = 60; // seconds
     uint256 private constant MAX_ORACLE_DELAY = 24 hours;
 
-    // Governance interface
     IGovernance public governance;
+    uint256 public saleCount;
+    bool public emergencyPaused;
 
-    uint256[50] private _gap;
+    mapping(address => bool) public allowedPaymentToken;
+    mapping(address => address) public paymentTokenToUsdAggregator;
+    mapping(address => uint256) public paymentTokenMaxDelay;
+    mapping(address => uint256) public paymentTokenMaxPrice1e8;
+    mapping(uint256 => Sale) internal _sales;
+    mapping(uint256 => uint256) public saleIdToSold; // total sold in token smallest units
+    mapping(bytes32 => bool) public fiatOrderReferenceFulfilled;
+    uint256[50] private __gap;
+
+    modifier onlyGov() {
+        _onlyGov();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        _whenNotPaused();
+        _;
+    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -41,59 +59,9 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
 
     function initialize(address governance_) external initializer {
         __ReentrancyGuard_init();
-        require(governance_ != address(0), "SalesManager_InvalidGovernance");
+        if (governance_ == address(0)) revert InvalidGovernance();
         governance = IGovernance(governance_);
     }
-
-    modifier onlyGov() {
-        _onlyGov();
-        _;
-    }
-
-    function _onlyGov() internal view {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), "SalesManager_NotAuthorized");
-    }
-
-    function _authorizeUpgrade(
-        address /*newImplementation*/
-    )
-        internal
-        view
-        override
-    {
-        require(governance.hasRole(msg.sender, address(this), msg.sig), "SalesManager_NotAuthorized");
-    }
-
-    modifier whenNotPaused() {
-        _whenNotPaused();
-        _;
-    }
-
-    function _whenNotPaused() internal view {
-        require(!emergencyPaused, "SalesManager_EmergencyPaused");
-    }
-
-    // payment token allowlist (always enforced)
-    mapping(address => bool) public allowedPaymentToken;
-
-    // Chainlink oracle mapping: payment token => USD aggregator
-    mapping(address => address) public paymentTokenToUsdAggregator;
-
-    // Deprecated: retained to preserve storage layout for existing proxies.
-    uint256 private __deprecatedMaxOracleDelaySeconds;
-
-    // Global emergency pause flag (blocks all buy() and fulfillFiatOrder() operations)
-    bool public emergencyPaused;
-
-    uint256 public saleCount;
-    mapping(uint256 => uint256) public saleIdToSold; // total sold in token smallest units
-    mapping(bytes32 => bool) public fiatOrderReferenceFulfilled;
-    mapping(uint256 => Sale) internal _sales;
-
-    // Per-payment-token max accepted oracle staleness (seconds)
-    mapping(address => uint256) public paymentTokenMaxDelay;
-    // Per-payment-token max accepted normalized price (1e8). Buy reverts if feed price exceeds this.
-    mapping(address => uint256) public paymentTokenMaxPrice1e8;
 
     /**
      * @dev see {ISalesManager.createSale}
@@ -107,28 +75,31 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         uint64 _start,
         uint64 _deadline
     ) external onlyGov returns (uint256 saleId) {
-        require(_share != address(0), "Sale_InvalidAddress");
-        require(_paymentTokensAllowed.length > 0, "Sale_NoPaymentTokens");
-        require(_fundsRecipient != address(0), "Sale_InvalidRecipient");
-        require(_saleSupply > 0, "Sale_ZeroSupply");
-        require(_priceUsdPerShare > 0, "Sale_ZeroPrice");
-        require(_start > block.timestamp, "Sale_InvalidStart");
-        require(_deadline > _start, "Sale_InvalidDeadline");
+        if (_share == address(0)) revert InvalidAddress();
+        uint256 len = _paymentTokensAllowed.length;
+        if (len == 0) revert NoPaymentTokens();
+        if (_fundsRecipient == address(0)) revert InvalidRecipient();
+        if (_saleSupply == 0) revert ZeroSupply();
+        if (_priceUsdPerShare == 0) revert ZeroPrice();
+        if (_start <= block.timestamp) revert InvalidStart();
+        if (_deadline <= _start) revert InvalidDeadline();
 
-        // Validate all payment tokens are allowlisted and have oracles configured
-        for (uint256 i = 0; i < _paymentTokensAllowed.length; i++) {
-            require(_paymentTokensAllowed[i] != address(0), "Sale_InvalidAddress");
-            require(allowedPaymentToken[_paymentTokensAllowed[i]], "Sale_PaymentTokenNotAllowed");
-            require(paymentTokenToUsdAggregator[_paymentTokensAllowed[i]] != address(0), "Sale_OracleNotConfigured");
+        // Validate all payment tokens are allowlisted and have oracles configured.
+        for (uint256 i; i < len;) {
+            address paymentToken = _paymentTokensAllowed[i];
+            if (paymentToken == address(0)) revert InvalidAddress();
+            if (!allowedPaymentToken[paymentToken]) revert PaymentTokenNotAllowed();
+            if (paymentTokenToUsdAggregator[paymentToken] == address(0)) revert OracleNotConfigured();
+            unchecked {
+                ++i;
+            }
         }
 
         uint8 shareDecimals = IToken(_share).decimals();
 
-        // If a MaxSupplyModule is bound with a finite cap, ensure saleSupply does not exceed remaining cap
+        // If a MaxSupplyModule is bound with a finite cap, ensure saleSupply does not exceed remaining cap.
         (bool capFound, uint256 remainingCap) = _getRemainingCap(_share);
-        if (capFound) {
-            require(_saleSupply <= remainingCap, "Sale_SupplyExceedsCap");
-        }
+        if (capFound && _saleSupply > remainingCap) revert SupplyExceedsCap();
 
         saleId = saleCount;
         _sales[saleId] = Sale({
@@ -161,32 +132,6 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     /**
-     * IMPORTANT: Cap is derived from the first MaxSupplyModule found on the bound compliance.
-     */
-    function _getRemainingCap(address _share) internal view returns (bool found, uint256 remaining) {
-        IModularCompliance compliance = IModularCompliance(IToken(_share).compliance());
-        address[] memory modules = compliance.getModules();
-        for (uint256 i = 0; i < modules.length; i++) {
-            address m = modules[i];
-            // try/catch in case module is not MaxSupplyModule
-            try IMaxSupplyModule(m).getMaxSupply(address(compliance)) returns (uint256 maxSupply) {
-                if (maxSupply == 0) {
-                    // uncapped
-                    return (false, 0);
-                }
-                uint256 cur = IMaxSupplyModule(m).getCurrentSupply(address(compliance));
-                if (maxSupply > cur) {
-                    return (true, maxSupply - cur);
-                }
-                return (true, 0);
-            } catch {
-                // not the expected module, continue
-            }
-        }
-        return (false, 0);
-    }
-
-    /**
      * @dev see {ISalesManager.buy}
      */
     function buy(uint256 _saleId, uint256 _amount, address _to, address _paymentToken, uint256 _maxPayment)
@@ -200,190 +145,23 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         address aggregator = _requireAllowedPaymentToken(s, _paymentToken);
         uint256 tokenAmount =
             _quotePaymentAmount(_amount, s.priceUsdPerShare, s.shareDecimals, aggregator, _paymentToken);
-        require(tokenAmount <= _maxPayment, "Sale_MaxPaymentExceeded");
+        if (tokenAmount > _maxPayment) revert MaxPaymentExceeded();
 
         // Cache storage fields needed after interactions before mutating state.
         address share = s.share;
         address fundsRecipient = s.fundsRecipient;
 
-        // EFFECTS: update accounting before any external interaction (CEI; defense-in-depth atop nonReentrant)
+        // update accounting before any external interaction (CEI; defense-in-depth atop nonReentrant).
         s.remainingSupply -= _amount;
         unchecked {
             saleIdToSold[_saleId] += _amount;
         }
 
-        // INTERACTIONS
         _pullExactPayment(_paymentToken, tokenAmount);
         IToken(share).mint(_to, _amount);
         IERC20(_paymentToken).safeTransfer(fundsRecipient, tokenAmount);
 
         emit SharePurchase(_saleId, msg.sender, _to, _paymentToken, _amount, tokenAmount);
-    }
-
-    /**
-     * @dev Validate sale state and buyer inputs shared by buy().
-     */
-    function _validateBuyInputs(Sale storage s, uint256 _amount, address _to) internal view {
-        require(s.active, "Sale_NotActive");
-        require(!s.paused, "Sale_Paused");
-        require(s.share != address(0), "Sale_DoesNotExist");
-        require(_to != address(0), "Sale_InvalidRecipient");
-        require(block.timestamp >= s.start, "Sale_NotStarted");
-        require(block.timestamp <= s.deadline, "Sale_Ended");
-        require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
-    }
-
-    /**
-     * @dev Confirm `_paymentToken` is allowed for this sale and globally, then return its oracle.
-     * @return aggregator Chainlink USD aggregator for the payment token.
-     */
-    function _requireAllowedPaymentToken(Sale storage s, address _paymentToken)
-        internal
-        view
-        returns (address aggregator)
-    {
-        bool isAllowed = false;
-        for (uint256 i = 0; i < s.paymentTokensAllowed.length; i++) {
-            if (s.paymentTokensAllowed[i] == _paymentToken) {
-                isAllowed = true;
-                break;
-            }
-        }
-        require(isAllowed, "Sale_PaymentTokenNotAllowed");
-        require(allowedPaymentToken[_paymentToken], "Sale_PaymentTokenNotAllowed");
-
-        aggregator = paymentTokenToUsdAggregator[_paymentToken];
-        require(aggregator != address(0), "Sale_OracleNotConfigured");
-    }
-
-    /**
-     * @dev Convert a share amount to the payment token amount required, with ceil rounding.
-     */
-    function _quotePaymentAmount(
-        uint256 _amount,
-        uint256 _priceUsdPerShare,
-        uint8 _shareDecimals,
-        address _aggregator,
-        address _paymentToken
-    ) internal view returns (uint256 tokenAmount) {
-        uint256 usdCost = _calculateUsdCost(_amount, _priceUsdPerShare, _shareDecimals);
-        require(usdCost > 0, "Sale_ZeroCost");
-
-        uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(
-            _aggregator, paymentTokenMaxDelay[_paymentToken], paymentTokenMaxPrice1e8[_paymentToken]
-        );
-        uint8 tokenDecimals = IERC20Metadata(_paymentToken).decimals();
-        tokenAmount = Math.mulDiv(usdCost, 10 ** uint256(tokenDecimals), tokenUsdPrice1e8, Math.Rounding.Up);
-    }
-
-    /**
-     * @dev Pull `_tokenAmount` from `msg.sender`, reverting if the received amount differs (fee-on-transfer).
-     */
-    function _pullExactPayment(address _paymentToken, uint256 _tokenAmount) internal {
-        uint256 balanceBefore = IERC20(_paymentToken).balanceOf(address(this));
-        IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
-        uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
-        require(balanceAfter - balanceBefore == _tokenAmount, "Sale_TransferAmountMismatch");
-    }
-
-    /**
-     * @dev see {ISalesManager.cancelSale}
-     */
-    function cancelSale(uint256 _saleId) external onlyGov {
-        Sale storage s = _sales[_saleId];
-        require(s.active && s.share != address(0), "Sale_DoesNotExist");
-        s.active = false;
-        // Also set deadline to past for completeness
-        s.deadline = uint64(block.timestamp);
-        emit SaleCancelled(_saleId);
-    }
-
-    /**
-     * @dev see {ISalesManager.pauseSale}
-     */
-    function pauseSale(uint256 _saleId) external onlyGov {
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        require(s.active, "Sale_NotActive");
-        require(!s.paused, "Sale_AlreadyPaused");
-        s.paused = true;
-        emit SalePaused(_saleId);
-    }
-
-    /**
-     * @dev see {ISalesManager.unpauseSale}
-     */
-    function unpauseSale(uint256 _saleId) external onlyGov {
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        require(s.active, "Sale_NotActive");
-        require(s.paused, "Sale_NotPaused");
-        s.paused = false;
-        emit SaleUnpaused(_saleId);
-    }
-
-    /**
-     * @dev see {ISalesManager.updateSaleFundsRecipient}
-     */
-    function updateSaleFundsRecipient(uint256 _saleId, address _newRecipient) external onlyGov {
-        require(_newRecipient != address(0), "Sale_InvalidRecipient");
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        address old = s.fundsRecipient;
-        s.fundsRecipient = _newRecipient;
-        emit SaleFundsRecipientUpdated(_saleId, old, _newRecipient);
-    }
-
-    /**
-     * @dev see {ISalesManager.updateSalePaymentTokensAllowed}
-     */
-    function updateSalePaymentTokensAllowed(uint256 _saleId, address[] calldata _newPaymentTokensAllowed)
-        external
-        onlyGov
-    {
-        require(_newPaymentTokensAllowed.length > 0, "Sale_NoPaymentTokens");
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-
-        // Validate all payment tokens are allowlisted and have oracles configured
-        for (uint256 i = 0; i < _newPaymentTokensAllowed.length; i++) {
-            address paymentToken = _newPaymentTokensAllowed[i];
-            require(paymentToken != address(0), "Sale_InvalidAddress");
-            require(allowedPaymentToken[paymentToken], "Sale_PaymentTokenNotAllowed");
-            require(paymentTokenToUsdAggregator[paymentToken] != address(0), "Sale_OracleNotConfigured");
-        }
-
-        address[] memory oldPaymentTokensAllowed = s.paymentTokensAllowed;
-        s.paymentTokensAllowed = _newPaymentTokensAllowed;
-        emit SalePaymentTokensAllowedUpdated(_saleId, oldPaymentTokensAllowed, _newPaymentTokensAllowed);
-    }
-
-    /**
-     * @dev see {ISalesManager.updateSalePriceUsdPerShare}
-     */
-    function updateSalePriceUsdPerShare(uint256 _saleId, uint256 _newPriceUsdPerShare) external onlyGov {
-        require(_newPriceUsdPerShare > 0, "Sale_ZeroPrice");
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        uint256 oldPrice = s.priceUsdPerShare;
-        s.priceUsdPerShare = _newPriceUsdPerShare;
-        emit SalePriceUsdPerShareUpdated(_saleId, oldPrice, _newPriceUsdPerShare);
-    }
-
-    /**
-     * @dev see {ISalesManager.updateSaleDeadline}
-     */
-    function updateSaleDeadline(uint256 _saleId, uint256 _newDeadline) external onlyGov {
-        require(_newDeadline > block.timestamp, "Sale_InvalidDeadline");
-        require(_newDeadline <= type(uint64).max, "Sale_InvalidDeadline");
-        Sale storage s = _sales[_saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        uint64 oldDeadline = s.deadline;
-
-        // Safe: _newDeadline is checked > block.timestamp and <= type(uint64).max.
-        // forge-lint: disable-next-line(unsafe-typecast)
-        s.deadline = uint64(_newDeadline);
-        emit SaleDeadlineUpdated(_saleId, oldDeadline, s.deadline);
     }
 
     /**
@@ -396,15 +174,15 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         whenNotPaused
     {
         Sale storage s = _sales[_saleId];
-        require(s.active, "Sale_NotActive");
-        require(!s.paused, "Sale_Paused");
-        require(s.share != address(0), "Sale_DoesNotExist");
-        require(_to != address(0), "Sale_InvalidRecipient");
-        require(block.timestamp >= s.start, "Sale_NotStarted");
-        require(block.timestamp <= s.deadline, "Sale_Ended");
-        require(_amount > 0 && _amount <= s.remainingSupply, "Sale_AmountInvalid");
-        require(_reference != bytes32(0), "Sale_InvalidFiatOrderReference");
-        require(!fiatOrderReferenceFulfilled[_reference], "Sale_FiatOrderReferenceAlreadyFulfilled");
+        if (!s.active) revert SaleNotActive();
+        if (s.paused) revert SalePausedErr();
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        if (_to == address(0)) revert InvalidRecipient();
+        if (block.timestamp < s.start) revert SaleNotStarted();
+        if (block.timestamp > s.deadline) revert SaleEnded();
+        if (_amount == 0 || _amount > s.remainingSupply) revert AmountInvalid();
+        if (_reference == bytes32(0)) revert InvalidFiatOrderReference();
+        if (fiatOrderReferenceFulfilled[_reference]) revert FiatOrderReferenceAlreadyFulfilled();
 
         s.remainingSupply -= _amount;
         unchecked {
@@ -417,29 +195,115 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
     }
 
     /**
-     * @dev see {ISalesManager.rescueTokens}
+     * @dev see {ISalesManager.cancelSale}
      */
-    function rescueTokens(address _erc20, address _to, uint256 _amount) external onlyGov {
-        require(_to != address(0), "Rescue_InvalidRecipient");
-        require(!allowedPaymentToken[_erc20], "Rescue_UseWithdrawFundsForPaymentTokens");
+    function cancelSale(uint256 _saleId) external onlyGov {
+        Sale storage s = _sales[_saleId];
+        if (!s.active || s.share == address(0)) revert SaleDoesNotExist();
+        s.active = false;
 
-        IERC20(_erc20).safeTransfer(_to, _amount);
-        emit TokensRescued(_erc20, _to, _amount);
+        // Also set deadline to past for completeness.
+        s.deadline = uint64(block.timestamp);
+        emit SaleCancelled(_saleId);
     }
 
     /**
-     * @dev see {ISalesManager.withdrawFunds}
+     * @dev see {ISalesManager.pauseSale}
      */
-    function withdrawFunds(address[] calldata tokens, address to, uint256[] calldata amounts) external onlyGov {
-        require(to != address(0), "Rescue_InvalidRecipient");
-        require(tokens.length == amounts.length, "Sale_LengthMismatch");
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = tokens[i];
-            uint256 amount = amounts[i];
-            require(allowedPaymentToken[token], "Sale_PaymentTokenNotAllowed");
-            IERC20(token).safeTransfer(to, amount);
-            emit FundsWithdrawn(token, to, amount);
+    function pauseSale(uint256 _saleId) external onlyGov {
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        if (!s.active) revert SaleNotActive();
+        if (s.paused) revert SaleAlreadyPaused();
+
+        s.paused = true;
+        emit SalePaused(_saleId);
+    }
+
+    /**
+     * @dev see {ISalesManager.unpauseSale}
+     */
+    function unpauseSale(uint256 _saleId) external onlyGov {
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        if (!s.active) revert SaleNotActive();
+        if (!s.paused) revert SaleNotPaused();
+
+        s.paused = false;
+        emit SaleUnpaused(_saleId);
+    }
+
+    /**
+     * @dev see {ISalesManager.updateSaleFundsRecipient}
+     */
+    function updateSaleFundsRecipient(uint256 _saleId, address _newRecipient) external onlyGov {
+        if (_newRecipient == address(0)) revert InvalidRecipient();
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+
+        address old = s.fundsRecipient;
+        s.fundsRecipient = _newRecipient;
+        emit SaleFundsRecipientUpdated(_saleId, old, _newRecipient);
+    }
+
+    /**
+     * @dev see {ISalesManager.updateSalePaymentTokensAllowed}
+     */
+    function updateSalePaymentTokensAllowed(uint256 _saleId, address[] calldata _newPaymentTokensAllowed)
+        external
+        onlyGov
+    {
+        uint256 len = _newPaymentTokensAllowed.length;
+        if (len == 0) revert NoPaymentTokens();
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+
+        // Validate all payment tokens are allowlisted and have oracles configured.
+        for (uint256 i; i < len;) {
+            address paymentToken = _newPaymentTokensAllowed[i];
+            if (paymentToken == address(0)) revert InvalidAddress();
+            if (!allowedPaymentToken[paymentToken]) revert PaymentTokenNotAllowed();
+            if (paymentTokenToUsdAggregator[paymentToken] == address(0)) revert OracleNotConfigured();
+            unchecked {
+                ++i;
+            }
         }
+
+        address[] memory oldPaymentTokensAllowed = s.paymentTokensAllowed;
+        s.paymentTokensAllowed = _newPaymentTokensAllowed;
+        emit SalePaymentTokensAllowedUpdated(_saleId, oldPaymentTokensAllowed, _newPaymentTokensAllowed);
+    }
+
+    /**
+     * @dev see {ISalesManager.updateSalePriceUsdPerShare}
+     */
+    function updateSalePriceUsdPerShare(uint256 _saleId, uint256 _newPriceUsdPerShare) external onlyGov {
+        if (_newPriceUsdPerShare == 0) revert ZeroPrice();
+
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+
+        uint256 oldPrice = s.priceUsdPerShare;
+        s.priceUsdPerShare = _newPriceUsdPerShare;
+        emit SalePriceUsdPerShareUpdated(_saleId, oldPrice, _newPriceUsdPerShare);
+    }
+
+    /**
+     * @dev see {ISalesManager.updateSaleDeadline}
+     */
+    function updateSaleDeadline(uint256 _saleId, uint256 _newDeadline) external onlyGov {
+        if (_newDeadline <= block.timestamp) revert InvalidDeadline();
+        if (_newDeadline > type(uint64).max) revert InvalidDeadline();
+
+        Sale storage s = _sales[_saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+
+        uint64 oldDeadline = s.deadline;
+
+        // Safe: _newDeadline is checked > block.timestamp and <= type(uint64).max.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        s.deadline = uint64(_newDeadline);
+        emit SaleDeadlineUpdated(_saleId, oldDeadline, s.deadline);
     }
 
     /**
@@ -464,12 +328,13 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             emit PaymentTokenOracleSet(paymentToken, address(0), 0, 0);
             return;
         }
-        require(maxDelay >= MIN_ORACLE_DELAY && maxDelay <= MAX_ORACLE_DELAY, "Sale_InvalidOracleDelay");
-        require(maxPrice1e8 > 0, "Sale_InvalidMaxPrice");
 
-        // Probe the feed so a broken aggregator can't be configured
+        if (maxDelay < MIN_ORACLE_DELAY || maxDelay > MAX_ORACLE_DELAY) revert InvalidOracleDelay();
+        if (maxPrice1e8 == 0) revert InvalidMaxPrice();
+
+        // Probe the feed so a broken aggregator can't be configured.
         (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(aggregator).latestRoundData();
-        require(answer > 0 && updatedAt > 0, "Sale_InvalidOracle");
+        if (answer <= 0 || updatedAt == 0) revert InvalidOracle();
 
         paymentTokenToUsdAggregator[paymentToken] = aggregator;
         paymentTokenMaxDelay[paymentToken] = maxDelay;
@@ -481,7 +346,7 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.setEmergencyPause}
      */
     function setEmergencyPause() external onlyGov {
-        require(!emergencyPaused, "SalesManager_AlreadyPaused");
+        if (emergencyPaused) revert EmergencyAlreadyPaused();
         emergencyPaused = true;
         emit EmergencyPauseSet(true);
     }
@@ -490,26 +355,186 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
      * @dev see {ISalesManager.unsetEmergencyPause}
      */
     function unsetEmergencyPause() external onlyGov {
-        require(emergencyPaused, "SalesManager_NotPaused");
+        if (!emergencyPaused) revert EmergencyNotPaused();
         emergencyPaused = false;
         emit EmergencyPauseSet(false);
     }
 
     /**
-     * @dev Calculate USD cost in 1e8 units
-     * @param _amount Amount of shares (smallest units)
-     * @param _priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
-     * @param _shareDecimals Decimals of the share token
-     * @return USD cost in 1e8 units
+     * @dev see {ISalesManager.rescueTokens}
      */
-    function _calculateUsdCost(uint256 _amount, uint256 _priceUsdPerShare, uint8 _shareDecimals)
+    function rescueTokens(address _erc20, address _to, uint256 _amount) external onlyGov {
+        if (_to == address(0)) revert InvalidRecipient();
+        if (allowedPaymentToken[_erc20]) revert UseWithdrawFundsForPaymentTokens();
+
+        IERC20(_erc20).safeTransfer(_to, _amount);
+        emit TokensRescued(_erc20, _to, _amount);
+    }
+
+    /**
+     * @dev see {ISalesManager.withdrawFunds}
+     */
+    function withdrawFunds(address[] calldata tokens, address to, uint256[] calldata amounts) external onlyGov {
+        if (to == address(0)) revert InvalidRecipient();
+
+        uint256 len = tokens.length;
+        if (len != amounts.length) revert LengthMismatch();
+
+        for (uint256 i; i < len;) {
+            address token = tokens[i];
+            uint256 amount = amounts[i];
+            if (!allowedPaymentToken[token]) revert PaymentTokenNotAllowed();
+            IERC20(token).safeTransfer(to, amount);
+            emit FundsWithdrawn(token, to, amount);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @dev see {ISalesManager.isPaymentTokenAllowed}
+     */
+    function isPaymentTokenAllowed(address paymentToken) external view returns (bool) {
+        return allowedPaymentToken[paymentToken];
+    }
+
+    /**
+     * @dev see {ISalesManager.getSaleTotalSupply}
+     */
+    function getSaleTotalSupply(uint256 saleId) external view returns (uint256) {
+        Sale storage s = _sales[saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        return s.remainingSupply + saleIdToSold[saleId];
+    }
+
+    /**
+     * @dev see {ISalesManager.getSaleRemainingSupply}
+     */
+    function getSaleRemainingSupply(uint256 saleId) external view returns (uint256) {
+        Sale storage s = _sales[saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        return s.remainingSupply;
+    }
+
+    /**
+     * @dev see {ISalesManager.getSale}
+     */
+    function getSale(uint256 saleId) external view returns (Sale memory) {
+        Sale storage s = _sales[saleId];
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        return s;
+    }
+
+    function _onlyGov() internal view {
+        if (!governance.hasRole(msg.sender, address(this), msg.sig)) revert NotAuthorized();
+    }
+
+    function _whenNotPaused() internal view {
+        if (emergencyPaused) revert EmergencyPausedErr();
+    }
+
+    function _authorizeUpgrade(
+        address /*newImplementation*/
+    )
         internal
-        pure
-        returns (uint256)
+        view
+        override
     {
-        uint256 scale = 10 ** uint256(_shareDecimals);
-        // Use mulDiv to avoid overflow and maintain precision
-        return Math.mulDiv(_amount, _priceUsdPerShare, scale, Math.Rounding.Up);
+        if (!governance.hasRole(msg.sender, address(this), msg.sig)) revert NotAuthorized();
+    }
+
+    /**
+     * @dev Validate sale state and buyer inputs shared by buy().
+     */
+    function _validateBuyInputs(Sale storage s, uint256 _amount, address _to) internal view {
+        if (!s.active) revert SaleNotActive();
+        if (s.paused) revert SalePausedErr();
+        if (s.share == address(0)) revert SaleDoesNotExist();
+        if (_to == address(0)) revert InvalidRecipient();
+        if (block.timestamp < s.start) revert SaleNotStarted();
+        if (block.timestamp > s.deadline) revert SaleEnded();
+        if (_amount == 0 || _amount > s.remainingSupply) revert AmountInvalid();
+    }
+
+    /**
+     * @dev Confirm `_paymentToken` is allowed for this sale and globally, then return its oracle.
+     * @return aggregator Chainlink USD aggregator for the payment token.
+     */
+    function _requireAllowedPaymentToken(Sale storage s, address _paymentToken)
+        internal
+        view
+        returns (address aggregator)
+    {
+        bool isAllowed = false;
+        uint256 len = s.paymentTokensAllowed.length;
+        for (uint256 i; i < len;) {
+            if (s.paymentTokensAllowed[i] == _paymentToken) {
+                isAllowed = true;
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
+        if (!isAllowed) revert PaymentTokenNotAllowed();
+        if (!allowedPaymentToken[_paymentToken]) revert PaymentTokenNotAllowed();
+
+        aggregator = paymentTokenToUsdAggregator[_paymentToken];
+        if (aggregator == address(0)) revert OracleNotConfigured();
+    }
+
+    /**
+     * @dev Convert a share amount to the payment token amount required, with ceil rounding.
+     */
+    function _quotePaymentAmount(
+        uint256 _amount,
+        uint256 _priceUsdPerShare,
+        uint8 _shareDecimals,
+        address _aggregator,
+        address _paymentToken
+    ) internal view returns (uint256 tokenAmount) {
+        uint256 usdCost = _calculateUsdCost(_amount, _priceUsdPerShare, _shareDecimals);
+        if (usdCost == 0) revert ZeroCost();
+
+        uint256 tokenUsdPrice1e8 = _getTokenUsdPrice1e8(
+            _aggregator, paymentTokenMaxDelay[_paymentToken], paymentTokenMaxPrice1e8[_paymentToken]
+        );
+        uint8 tokenDecimals = IERC20Metadata(_paymentToken).decimals();
+        tokenAmount = Math.mulDiv(usdCost, 10 ** uint256(tokenDecimals), tokenUsdPrice1e8, Math.Rounding.Up);
+    }
+
+    /**
+     * IMPORTANT: Cap is derived from the first MaxSupplyModule found on the bound compliance.
+     */
+    function _getRemainingCap(address _share) internal view returns (bool found, uint256 remaining) {
+        IModularCompliance compliance = IModularCompliance(IToken(_share).compliance());
+        address[] memory modules = compliance.getModules();
+        uint256 len = modules.length;
+
+        for (uint256 i; i < len;) {
+            address m = modules[i];
+            // try/catch in case module is not MaxSupplyModule.
+            try IMaxSupplyModule(m).getMaxSupply(address(compliance)) returns (uint256 maxSupply) {
+                if (maxSupply == 0) {
+                    // uncapped
+                    return (false, 0);
+                }
+                uint256 cur = IMaxSupplyModule(m).getCurrentSupply(address(compliance));
+                if (maxSupply > cur) {
+                    return (true, maxSupply - cur);
+                }
+                return (true, 0);
+            } catch {
+                // not the expected module, continue
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
+        return (false, 0);
     }
 
     /**
@@ -527,10 +552,10 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
         AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
         (, int256 answer,, uint256 updatedAt,) = priceFeed.latestRoundData();
 
-        // Validate price data
-        require(answer > 0, "Sale_InvalidPrice");
-        require(updatedAt > 0, "Sale_PriceNotUpdated");
-        require(block.timestamp - updatedAt <= maxDelay, "Sale_StalePrice");
+        // Validate price data.
+        if (answer <= 0) revert InvalidPrice();
+        if (updatedAt == 0) revert PriceNotUpdated();
+        if (block.timestamp - updatedAt > maxDelay) revert StalePrice();
 
         uint8 aggregatorDecimals = priceFeed.decimals();
 
@@ -547,66 +572,34 @@ contract SalesManager is ISalesManager, ReentrancyGuardUpgradeable, UUPSUpgradea
             price = priceRaw * (10 ** uint256(PRICE_USD_DECIMALS - aggregatorDecimals));
         }
 
-        require(price > 0, "Sale_InvalidPrice");
-        require(price <= maxPrice1e8, "Sale_PriceAboveCeiling");
+        if (price == 0) revert InvalidPrice();
+        if (price > maxPrice1e8) revert PriceAboveCeiling();
     }
 
     /**
-     * @dev see {ISalesManager.isPaymentTokenAllowed}
+     * @dev Pull `_tokenAmount` from `msg.sender`, reverting if the received amount differs (fee-on-transfer).
      */
-    function isPaymentTokenAllowed(address paymentToken) external view returns (bool) {
-        return allowedPaymentToken[paymentToken];
+    function _pullExactPayment(address _paymentToken, uint256 _tokenAmount) internal {
+        uint256 balanceBefore = IERC20(_paymentToken).balanceOf(address(this));
+        IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), _tokenAmount);
+        uint256 balanceAfter = IERC20(_paymentToken).balanceOf(address(this));
+        if (balanceAfter - balanceBefore != _tokenAmount) revert TransferAmountMismatch();
     }
 
     /**
-     * @dev see {ISalesManager.getSaleTotalSupply}
+     * @dev Calculate USD cost in 1e8 units
+     * @param _amount Amount of shares (smallest units)
+     * @param _priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
+     * @param _shareDecimals Decimals of the share token
+     * @return USD cost in 1e8 units
      */
-    function getSaleTotalSupply(uint256 saleId) external view returns (uint256) {
-        Sale storage s = _sales[saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        return s.remainingSupply + saleIdToSold[saleId];
-    }
-
-    /**
-     * @dev see {ISalesManager.getSaleRemainingSupply}
-     */
-    function getSaleRemainingSupply(uint256 saleId) external view returns (uint256) {
-        Sale storage s = _sales[saleId];
-        require(s.share != address(0), "Sale_DoesNotExist");
-        return s.remainingSupply;
-    }
-
-    /**
-     * @dev see {ISalesManager.getSale}
-     */
-    function getSale(uint256 saleId)
-        external
-        view
-        returns (
-            address share,
-            address[] memory paymentTokensAllowed,
-            address fundsRecipient,
-            uint256 remainingSupply,
-            uint256 priceUsdPerShare,
-            uint64 start,
-            uint64 deadline,
-            uint8 shareDecimals,
-            bool active,
-            bool paused
-        )
+    function _calculateUsdCost(uint256 _amount, uint256 _priceUsdPerShare, uint8 _shareDecimals)
+        internal
+        pure
+        returns (uint256)
     {
-        Sale storage s = _sales[saleId];
-        return (
-            s.share,
-            s.paymentTokensAllowed,
-            s.fundsRecipient,
-            s.remainingSupply,
-            s.priceUsdPerShare,
-            s.start,
-            s.deadline,
-            s.shareDecimals,
-            s.active,
-            s.paused
-        );
+        uint256 scale = 10 ** uint256(_shareDecimals);
+        // Use mulDiv to avoid overflow and maintain precision.
+        return Math.mulDiv(_amount, _priceUsdPerShare, scale, Math.Rounding.Up);
     }
 }

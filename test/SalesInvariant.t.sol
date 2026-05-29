@@ -6,6 +6,7 @@ import {ProtocolFixture, Protocol, Accounts} from "./fixtures/ProtocolFixture.so
 import {ShareTestUtils} from "./utils/ShareTestUtils.sol";
 import {MockToken} from "contracts/mocks/MockToken.sol";
 import {MockAggregatorV3} from "contracts/mocks/MockAggregatorV3.sol";
+import {ISalesManager} from "contracts/ISalesManager.sol";
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 
 contract SalesInvariantHandler is ProtocolFixture {
@@ -181,12 +182,12 @@ contract SalesInvariantHandler is ProtocolFixture {
         vm.prank(buyer);
         try protocol.salesManager.buy(saleId, amount, buyer, address(stable), type(uint128).max) {
             pausedBuyViolation = true;
-        } catch Error(string memory reason) {
-            if (keccak256(bytes(reason)) != keccak256(bytes("SalesManager_EmergencyPaused"))) {
+        } catch Error(string memory) {
+            pausedBuyViolation = true;
+        } catch (bytes memory reason) {
+            if (keccak256(reason) != keccak256(abi.encodeWithSelector(ISalesManager.EmergencyPausedErr.selector))) {
                 pausedBuyViolation = true;
             }
-        } catch (bytes memory) {
-            pausedBuyViolation = true;
         }
     }
 
@@ -199,12 +200,12 @@ contract SalesInvariantHandler is ProtocolFixture {
         vm.prank(acc.fiatOrderSigner);
         try protocol.salesManager.fulfillFiatOrder(saleId, amount, buyer, ref) {
             pausedFiatViolation = true;
-        } catch Error(string memory reason) {
-            if (keccak256(bytes(reason)) != keccak256(bytes("SalesManager_EmergencyPaused"))) {
+        } catch Error(string memory) {
+            pausedFiatViolation = true;
+        } catch (bytes memory reason) {
+            if (keccak256(reason) != keccak256(abi.encodeWithSelector(ISalesManager.EmergencyPausedErr.selector))) {
                 pausedFiatViolation = true;
             }
-        } catch (bytes memory) {
-            pausedFiatViolation = true;
         }
     }
 
