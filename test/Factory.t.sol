@@ -83,7 +83,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_Factory_initialize_rejects_zero_governance() public {
         Factory impl = new Factory();
         Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("Factory_InvalidGovernanceAddress"));
+        vm.expectRevert(IFactory.InvalidGovernanceAddress.selector);
         proxy.initialize(
             address(p.trexFactory),
             address(p.salesManager),
@@ -96,7 +96,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_Factory_initialize_rejects_zero_trex_factory() public {
         Factory impl = new Factory();
         Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("Factory_InvalidTREXFactoryAddress"));
+        vm.expectRevert(IFactory.InvalidTREXFactoryAddress.selector);
         proxy.initialize(
             ZERO, address(p.salesManager), address(p.tokenController), address(p.maxSupplyModule), address(p.governance)
         );
@@ -105,7 +105,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_Factory_initialize_rejects_zero_sales_manager() public {
         Factory impl = new Factory();
         Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("Factory_InvalidSalesManagerAddress"));
+        vm.expectRevert(IFactory.InvalidSalesManagerAddress.selector);
         proxy.initialize(
             address(p.trexFactory), ZERO, address(p.tokenController), address(p.maxSupplyModule), address(p.governance)
         );
@@ -114,7 +114,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_Factory_initialize_rejects_zero_token_controller() public {
         Factory impl = new Factory();
         Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("Factory_InvalidTokenControllerAddress"));
+        vm.expectRevert(IFactory.InvalidTokenControllerAddress.selector);
         proxy.initialize(
             address(p.trexFactory), address(p.salesManager), ZERO, address(p.maxSupplyModule), address(p.governance)
         );
@@ -123,7 +123,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_Factory_initialize_rejects_zero_max_supply_module() public {
         Factory impl = new Factory();
         Factory proxy = Factory(payable(address(new ERC1967Proxy(address(impl), ""))));
-        vm.expectRevert(bytes("Factory_InvalidMaxSupplyModuleAddress"));
+        vm.expectRevert(IFactory.InvalidMaxSupplyModuleAddress.selector);
         proxy.initialize(
             address(p.trexFactory), address(p.salesManager), address(p.tokenController), ZERO, address(p.governance)
         );
@@ -157,7 +157,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address attacker = vm.addr(77);
         Factory factoryImpl = new Factory();
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory.upgradeTo(address(factoryImpl));
     }
 
@@ -213,7 +213,7 @@ contract FactoryTest is Test, ProtocolFixture {
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         address attacker = vm.addr(99);
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -239,7 +239,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
         // attacker cannot create initially
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -284,7 +284,7 @@ contract FactoryTest is Test, ProtocolFixture {
         vm.prank(multisig);
         p.accessManager.revokeRole(roles.shareDeployer, attacker);
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -326,7 +326,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotOwnerOfTREXFactory"));
+        vm.expectRevert(IFactory.NotOwnerOfTREXFactory.selector);
         rogue.createShare(
             IFactory.CreateShareParams({
                 name: "R",
@@ -347,7 +347,7 @@ contract FactoryTest is Test, ProtocolFixture {
     function test_MaxSupplyRequired() public {
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_MaxSupplyRequired"));
+        vm.expectRevert(IFactory.MaxSupplyRequired.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -372,7 +372,7 @@ contract FactoryTest is Test, ProtocolFixture {
         (address[] memory tokenAgents, address[] memory irAgents) = _defaultAgents();
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_MaxSupplyModuleNotSet"));
+        vm.expectRevert(IFactory.MaxSupplyModuleNotSet.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -397,7 +397,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address[] memory irAgents = new address[](0);
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_CustomTokenAgentsNotAllowed"));
+        vm.expectRevert(IFactory.CustomTokenAgentsNotAllowed.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -423,7 +423,7 @@ contract FactoryTest is Test, ProtocolFixture {
         irAgents[0] = identityRegistryAgent;
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_CustomTokenAgentsNotAllowed"));
+        vm.expectRevert(IFactory.CustomTokenAgentsNotAllowed.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -472,7 +472,7 @@ contract FactoryTest is Test, ProtocolFixture {
         IdentityRegistryStorageProxy badIrsProxy =
             new IdentityRegistryStorageProxy(address(p.trexFactory.getImplementationAuthority()));
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_IRSNot0OrOwnedByTREXFactory"));
+        vm.expectRevert(IFactory.IRSNot0OrOwnedByTREXFactory.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -521,7 +521,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address[] memory irAgents = new address[](6);
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_Max5IRAgents"));
+        vm.expectRevert(IFactory.Max5IRAgents.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -545,7 +545,7 @@ contract FactoryTest is Test, ProtocolFixture {
         uint256[] memory sixClaims = new uint256[](6);
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_Max5ClaimTopics"));
+        vm.expectRevert(IFactory.Max5ClaimTopics.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -569,7 +569,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address[] memory issuers = new address[](6);
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_Max5Issuers"));
+        vm.expectRevert(IFactory.Max5Issuers.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -596,7 +596,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address[] memory oneIssuer = new address[](1);
         oneIssuer[0] = claimIssuer;
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_ClaimIssuerLengthMismatch"));
+        vm.expectRevert(IFactory.ClaimIssuerLengthMismatch.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -617,7 +617,7 @@ contract FactoryTest is Test, ProtocolFixture {
         uint256[][] memory oneIssuerClaim = new uint256[][](1);
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_ClaimIssuerLengthMismatch"));
+        vm.expectRevert(IFactory.ClaimIssuerLengthMismatch.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -813,7 +813,7 @@ contract FactoryTest is Test, ProtocolFixture {
             );
 
         vm.prank(factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_SymbolAlreadyUsed"));
+        vm.expectRevert(IFactory.SymbolAlreadyUsed.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
@@ -1123,7 +1123,7 @@ contract FactoryTest is Test, ProtocolFixture {
         });
 
         vm.prank(vm.addr(79));
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory.deployShareSuite("NOAUTH", td, cd);
     }
 
@@ -1162,7 +1162,7 @@ contract FactoryTest is Test, ProtocolFixture {
         });
 
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotOwnerOfTREXFactory"));
+        vm.expectRevert(IFactory.NotOwnerOfTREXFactory.selector);
         rogue.deployShareSuite("ROGUE", td, cd);
     }
 
@@ -1191,7 +1191,7 @@ contract FactoryTest is Test, ProtocolFixture {
         });
 
         vm.startPrank(multisig);
-        vm.expectRevert(bytes("Factory_Max5TokenAgents"));
+        vm.expectRevert(IFactory.Max5TokenAgents.selector);
         p.factory.deployShareSuite("S6", td, cd);
         vm.stopPrank();
     }
@@ -1244,7 +1244,7 @@ contract FactoryTest is Test, ProtocolFixture {
 
         vm.startPrank(multisig);
         p.factory.deployShareSuite("SALT", td, cd);
-        vm.expectRevert(bytes("Factory_SaltAlreadyUsed"));
+        vm.expectRevert(IFactory.SaltAlreadyUsed.selector);
         td.name = "B";
         td.symbol = "B";
         p.factory.deployShareSuite("SALT", td, cd);
@@ -1272,7 +1272,7 @@ contract FactoryTest is Test, ProtocolFixture {
         address attacker = vm.addr(98);
 
         vm.prank(attacker);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory.editMaxSupplyModule(address(module));
     }
 

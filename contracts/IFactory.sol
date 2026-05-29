@@ -30,6 +30,25 @@ interface IFactory {
      */
     event EditMaxSupplyModule(address maxSupplyModule);
 
+    error InvalidGovernanceAddress();
+    error InvalidTREXFactoryAddress();
+    error InvalidSalesManagerAddress();
+    error InvalidTokenControllerAddress();
+    error InvalidMaxSupplyModuleAddress();
+    error NotAuthorized();
+    error NotOwnerOfTREXFactory();
+    error MaxSupplyRequired();
+    error MaxSupplyModuleNotSet();
+    error CustomTokenAgentsNotAllowed();
+    error Max5IRAgents();
+    error IRSNot0OrOwnedByTREXFactory();
+    error Max5ClaimTopics();
+    error Max5Issuers();
+    error ClaimIssuerLengthMismatch();
+    error Max5TokenAgents();
+    error SymbolAlreadyUsed();
+    error SaltAlreadyUsed();
+
     /**
      * @notice Returns the address of the TREXFactory
      * @return The address of the TREXFactory
