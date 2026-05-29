@@ -16,6 +16,44 @@ pragma solidity 0.8.17;
  * - For role values, see Governance.sol constants
  */
 interface ISalesManager {
+    error InvalidGovernance();
+    error NotAuthorized();
+    error EmergencyPausedErr();
+    error EmergencyAlreadyPaused();
+    error EmergencyNotPaused();
+    error InvalidAddress();
+    error NoPaymentTokens();
+    error InvalidRecipient();
+    error ZeroSupply();
+    error ZeroPrice();
+    error InvalidStart();
+    error InvalidDeadline();
+    error SaleNotStarted();
+    error SaleEnded();
+    error PaymentTokenNotAllowed();
+    error OracleNotConfigured();
+    error SupplyExceedsCap();
+    error MaxPaymentExceeded();
+    error SaleNotActive();
+    error SalePausedErr();
+    error SaleDoesNotExist();
+    error AmountInvalid();
+    error ZeroCost();
+    error TransferAmountMismatch();
+    error SaleAlreadyPaused();
+    error SaleNotPaused();
+    error InvalidFiatOrderReference();
+    error FiatOrderReferenceAlreadyFulfilled();
+    error UseWithdrawFundsForPaymentTokens();
+    error LengthMismatch();
+    error InvalidOracleDelay();
+    error InvalidMaxPrice();
+    error InvalidOracle();
+    error InvalidPrice();
+    error PriceNotUpdated();
+    error StalePrice();
+    error PriceAboveCeiling();
+
     /// @dev Sale configuration and accounting
     struct Sale {
         address share; // ERC-3643 share address
@@ -147,31 +185,8 @@ interface ISalesManager {
 
     /// @notice Returns the sale configuration and current state
     /// @param saleId The sale identifier
-    /// @return share The ERC-3643 token address
-    /// @return paymentTokensAllowed The ERC20 payment tokens allowed for this sale
-    /// @return fundsRecipient The treasury address for proceeds
-    /// @return remainingSupply Remaining sale supply (smallest units)
-    /// @return priceUsdPerShare USD price per 1 full share (10^shareDecimals), 8 decimals (1e8)
-    /// @return start Unix timestamp for sale start
-    /// @return deadline Unix timestamp for sale end
-    /// @return shareDecimals Cached decimals of the share
-    /// @return active Whether the sale is active
-    /// @return paused Whether the sale is paused
-    function getSale(uint256 saleId)
-        external
-        view
-        returns (
-            address share,
-            address[] memory paymentTokensAllowed,
-            address fundsRecipient,
-            uint256 remainingSupply,
-            uint256 priceUsdPerShare,
-            uint64 start,
-            uint64 deadline,
-            uint8 shareDecimals,
-            bool active,
-            bool paused
-        );
+    /// @return sale The sale configuration and current state
+    function getSale(uint256 saleId) external view returns (Sale memory sale);
 
     /// @notice Total amount sold for a sale (smallest units)
     /// @param saleId The sale identifier

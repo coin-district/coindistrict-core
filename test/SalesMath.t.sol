@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import {Test} from "forge-std/Test.sol";
 import {stdError} from "forge-std/StdError.sol";
 import {SalesManager} from "contracts/SalesManager.sol";
+import {ISalesManager} from "contracts/ISalesManager.sol";
 import {MockAggregatorV3} from "contracts/mocks/MockAggregatorV3.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -93,7 +94,7 @@ contract SalesMathTest is Test {
     function test_getTokenUsdPrice1e8_decimals_19_reverts_when_normalized_price_is_zero() public {
         // price=1 -> 1 * 1e8 / 1e19 truncates to zero and is unusable as a payment denominator.
         MockAggregatorV3 oracle = new MockAggregatorV3(19, 1);
-        vm.expectRevert(bytes("Sale_InvalidPrice"));
+        vm.expectRevert(ISalesManager.InvalidPrice.selector);
         harness.exposedGetTokenUsdPrice1e8(address(oracle));
 
         // price=1e11 -> 1e11 * 1e8 / 1e19 = 1 (non-zero branch).
@@ -110,14 +111,14 @@ contract SalesMathTest is Test {
 
     function test_getTokenUsdPrice1e8_reverts_when_price_above_ceiling() public {
         MockAggregatorV3 oracle = new MockAggregatorV3(8, int256(2e8));
-        vm.expectRevert(bytes("Sale_PriceAboveCeiling"));
+        vm.expectRevert(ISalesManager.PriceAboveCeiling.selector);
         harness.exposedGetTokenUsdPrice1e8Params(address(oracle), 24 hours, 1e8);
     }
 
     function test_getTokenUsdPrice1e8_reverts_when_stale() public {
         MockAggregatorV3 oracle = new MockAggregatorV3(8, int256(1e8));
         vm.warp(block.timestamp + 25 hours);
-        vm.expectRevert(bytes("Sale_StalePrice"));
+        vm.expectRevert(ISalesManager.StalePrice.selector);
         harness.exposedGetTokenUsdPrice1e8Params(address(oracle), 24 hours, type(uint256).max);
     }
 }
