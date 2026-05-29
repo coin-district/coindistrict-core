@@ -10,6 +10,7 @@ import {IModularCompliance} from "@erc3643org/erc-3643/contracts/compliance/modu
 import {Token} from "@erc3643org/erc-3643/contracts/token/Token.sol";
 import {Identity} from "@onchain-id/solidity/contracts/Identity.sol";
 import {MaxSupplyModule} from "contracts/compliance/modules/MaxSupplyModule.sol";
+import {IMaxSupplyModule} from "contracts/compliance/modules/IMaxSupplyModule.sol";
 
 contract MaxSupplyModuleTest is Test, ProtocolFixture {
     using ShareTestUtils for Protocol;
@@ -53,7 +54,7 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
 
         // Try to set max supply below current
         vm.prank(compliance);
-        vm.expectRevert(bytes("MaxSupplyModule: new max supply cannot be below current supply"));
+        vm.expectRevert(IMaxSupplyModule.MaxSupplyBelowCurrentSupply.selector);
         module.setMaxSupply(50);
     }
 
@@ -128,7 +129,7 @@ contract MaxSupplyModuleTest is Test, ProtocolFixture {
 
         bytes memory setTooLow = abi.encodeWithSignature("setMaxSupply(uint256)", 200);
         vm.prank(multisig);
-        vm.expectRevert(bytes("MaxSupplyModule: new max supply cannot be below current supply"));
+        vm.expectRevert(IMaxSupplyModule.MaxSupplyBelowCurrentSupply.selector);
         mc.callModuleFunction(setTooLow, address(module));
     }
 
