@@ -95,7 +95,7 @@ contract RoleMatrixTest is Test, ProtocolFixture {
     function test_shareDeployer_cannot_upgrade_factory() public {
         Factory newImpl = new Factory();
         vm.prank(acc.factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         IUUPSUpgradeableLike(address(p.factory)).upgradeToAndCall(address(newImpl), "");
     }
 
@@ -118,13 +118,13 @@ contract RoleMatrixTest is Test, ProtocolFixture {
         });
 
         vm.prank(acc.factoryShareDeployer);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory.deployShareSuite("DEPLOYER_BYPASS", tokenDetails, claimDetails);
     }
 
     function test_upgrader_cannot_deploy_share_without_shareDeployer_role() public {
         vm.prank(acc.multisig);
-        vm.expectRevert(bytes("Factory_NotAuthorized"));
+        vm.expectRevert(IFactory.NotAuthorized.selector);
         p.factory
             .createShare(
                 IFactory.CreateShareParams({
