@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 /**
  * @title IMaxSupplyModule
  * @author CoinDistrict
- * @dev Version: 1.0.0-rc1
+ * @dev Version: 1.0.0-rc2
  * @notice Mirror interface for {MaxSupplyModule} to allow external integrations and tooling.
  * See {IMaxSupplyModule} for usage and more details.
  * @dev All reads/writes are scoped to a given {ModularCompliance} binding (the compliance contract is used as key).
