@@ -162,14 +162,14 @@ contract SalesInvariantHandler is ProtocolFixture {
 
     function pauseEmergency() external {
         if (emergencyPaused) return;
-        vm.prank(acc.salesManagerSalesOperator);
+        vm.prank(acc.salesManagerGuardian);
         protocol.salesManager.setEmergencyPause();
         emergencyPaused = true;
     }
 
     function unpauseEmergency() external {
         if (!emergencyPaused) return;
-        vm.prank(acc.salesManagerSalesOperator);
+        vm.prank(acc.multisig);
         protocol.salesManager.unsetEmergencyPause();
         emergencyPaused = false;
     }

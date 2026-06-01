@@ -77,6 +77,7 @@ struct Accounts {
     address factoryShareDeployer;
     address salesManagerSalesConfig;
     address salesManagerSalesOperator;
+    address salesManagerGuardian;
     address salesManagerFundsAdmin;
     address fiatOrderSigner;
     address buyer;
@@ -99,6 +100,7 @@ struct RoleIds {
     uint64 freezer;
     uint64 force;
     uint64 recovery;
+    uint64 guardian;
 }
 
 abstract contract ProtocolFixture is Test {
@@ -118,6 +120,7 @@ abstract contract ProtocolFixture is Test {
         a.factoryShareDeployer = vm.addr(6);
         a.salesManagerSalesConfig = vm.addr(7);
         a.salesManagerSalesOperator = vm.addr(8);
+        a.salesManagerGuardian = vm.addr(15);
         a.salesManagerFundsAdmin = vm.addr(9);
         a.fiatOrderSigner = vm.addr(10);
         a.buyer = vm.addr(11);
@@ -238,6 +241,7 @@ abstract contract ProtocolFixture is Test {
         _grantRole(p, a.multisig, roles.shareDeployer, a.factoryShareDeployer);
         _grantRole(p, a.multisig, roles.salesConfig, a.salesManagerSalesConfig);
         _grantRole(p, a.multisig, roles.salesOperator, a.salesManagerSalesOperator);
+        _grantRole(p, a.multisig, roles.guardian, a.salesManagerGuardian);
         _grantRole(p, a.multisig, roles.fundsAdmin, a.salesManagerFundsAdmin);
         _grantRole(p, a.multisig, roles.fiatOrder, a.fiatOrderSigner);
         _grantRole(p, a.multisig, roles.pauser, a.tokenAgent);
@@ -286,6 +290,7 @@ abstract contract ProtocolFixture is Test {
         roles.freezer = _parseRoleId(json, "FREEZER_ROLE");
         roles.force = _parseRoleId(json, "FORCE_ROLE");
         roles.recovery = _parseRoleId(json, "RECOVERY_ROLE");
+        roles.guardian = _parseRoleId(json, "GUARDIAN_ROLE");
     }
 
     function _parseRoleId(string memory json, string memory name) internal pure returns (uint64) {
@@ -363,14 +368,10 @@ abstract contract ProtocolFixture is Test {
             roleId: roles.salesConfig
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.setEmergencyPause.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.setEmergencyPause.selector, roleId: roles.guardian
         });
         perms[i++] = Permission({
-            target: address(p.salesManager),
-            selector: SalesManager.unsetEmergencyPause.selector,
-            roleId: roles.salesOperator
+            target: address(p.salesManager), selector: SalesManager.unsetEmergencyPause.selector, roleId: roles.admin
         });
         perms[i++] = Permission({
             target: address(p.salesManager), selector: SalesManager.createSale.selector, roleId: roles.salesOperator
