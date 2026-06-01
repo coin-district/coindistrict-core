@@ -16,6 +16,7 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+.zed/
 
 # Prevent nested git metadata from dependencies
 lib/**/.git
