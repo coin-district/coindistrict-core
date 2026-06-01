@@ -50,6 +50,12 @@ jobs:
 
       - name: Publish to GitHub Packages
         if: startsWith(github.ref, 'refs/tags/')
-        run: pnpm publish --no-git-checks
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            pnpm publish --no-git-checks --tag rc
+          else
+            pnpm publish --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
