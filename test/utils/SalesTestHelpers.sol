@@ -39,6 +39,7 @@ abstract contract SalesTestHelpers is Test, ProtocolFixture {
     address internal factoryShareDeployer = vm.addr(6);
     address internal salesManagerSalesConfig = vm.addr(7);
     address internal salesManagerSalesOperator = vm.addr(8);
+    address internal salesManagerGuardian = vm.addr(15);
     address internal salesManagerFundsAdmin = vm.addr(9);
     address internal fiatOrderSigner = vm.addr(10);
     address internal buyer = vm.addr(11);
@@ -59,6 +60,7 @@ abstract contract SalesTestHelpers is Test, ProtocolFixture {
         factoryShareDeployer = acc.factoryShareDeployer;
         salesManagerSalesConfig = acc.salesManagerSalesConfig;
         salesManagerSalesOperator = acc.salesManagerSalesOperator;
+        salesManagerGuardian = acc.salesManagerGuardian;
         salesManagerFundsAdmin = acc.salesManagerFundsAdmin;
         fiatOrderSigner = acc.fiatOrderSigner;
         buyer = acc.buyer;

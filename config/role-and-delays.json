@@ -12,7 +12,8 @@
     "BURNER_ROLE": 10,
     "FREEZER_ROLE": 11,
     "FORCE_ROLE": 12,
-    "RECOVERY_ROLE": 13
+    "RECOVERY_ROLE": 13,
+    "GUARDIAN_ROLE": 14
   },
   "executionDelaysSeconds": {
     "PROTOCOL_ADMIN_ROLE": 180,
@@ -27,7 +28,8 @@
     "BURNER_ROLE": 60,
     "FREEZER_ROLE": 60,
     "FORCE_ROLE": 60,
-    "RECOVERY_ROLE": 60
+    "RECOVERY_ROLE": 60,
+    "GUARDIAN_ROLE": 0
   },
   "permissions": {
     "Factory": {
@@ -45,8 +47,8 @@
       "updateSaleFundsRecipient": "FUNDS_ADMIN_ROLE",
       "setAllowedPaymentToken": "SALES_CONFIG_ROLE",
       "setPaymentTokenOracle": "SALES_CONFIG_ROLE",
-      "setEmergencyPause": "SALES_OPERATOR_ROLE",
-      "unsetEmergencyPause": "SALES_OPERATOR_ROLE",
+      "setEmergencyPause": "GUARDIAN_ROLE",
+      "unsetEmergencyPause": "PROTOCOL_ADMIN_ROLE",
       "createSale": "SALES_OPERATOR_ROLE",
       "cancelSale": "SALES_OPERATOR_ROLE",
       "pauseSale": "SALES_OPERATOR_ROLE",

@@ -1496,7 +1496,7 @@ contract SalesTest is SalesTestHelpers {
         p.registerIdentity(vm, identityRegistryAgent, recipient);
         vm.warp(ctx.start + 1);
 
-        vm.prank(salesManagerSalesOperator);
+        vm.prank(salesManagerGuardian);
         p.salesManager.setEmergencyPause();
 
         vm.startPrank(buyer);
@@ -1516,10 +1516,10 @@ contract SalesTest is SalesTestHelpers {
         p.registerIdentity(vm, identityRegistryAgent, recipient);
         vm.warp(ctx.start + 1);
 
-        vm.startPrank(salesManagerSalesOperator);
+        vm.prank(salesManagerGuardian);
         p.salesManager.setEmergencyPause();
+        vm.prank(multisig);
         p.salesManager.unsetEmergencyPause();
-        vm.stopPrank();
 
         vm.startPrank(buyer);
         ctx.stable.approve(address(p.salesManager), 10_000_000);
@@ -1532,19 +1532,19 @@ contract SalesTest is SalesTestHelpers {
     }
 
     function test_emergencyPause_rejects_double_set_and_double_unset() public {
-        vm.prank(salesManagerSalesOperator);
+        vm.startPrank(salesManagerGuardian);
         p.salesManager.setEmergencyPause();
 
-        vm.prank(salesManagerSalesOperator);
         vm.expectRevert(ISalesManager.EmergencyAlreadyPaused.selector);
         p.salesManager.setEmergencyPause();
+        vm.stopPrank();
 
-        vm.prank(salesManagerSalesOperator);
+        vm.startPrank(multisig);
         p.salesManager.unsetEmergencyPause();
 
-        vm.prank(salesManagerSalesOperator);
         vm.expectRevert(ISalesManager.EmergencyNotPaused.selector);
         p.salesManager.unsetEmergencyPause();
+        vm.stopPrank();
     }
 
     // Cross-sale supply accounting
