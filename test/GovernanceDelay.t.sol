@@ -19,6 +19,7 @@ import {MockAggregatorV3} from "contracts/mocks/MockAggregatorV3.sol";
 interface IAccessManagerOps {
     function schedule(address target, bytes calldata data, uint48 when) external returns (bytes32, uint32);
     function execute(address target, bytes calldata data) external payable returns (uint32);
+    function getTargetFunctionRole(address target, bytes4 selector) external view returns (uint64);
 }
 
 contract GovernanceDelayTest is Test, ProtocolFixture {
@@ -265,6 +266,60 @@ contract GovernanceDelayTest is Test, ProtocolFixture {
         );
 
         assertEq(p.tokenController.INITIALIZED_BIT(), initializedBitBefore);
+    }
+
+    function test_guardian_can_pause_immediately() public {
+        vm.prank(acc.multisig);
+        p.accessManager.grantRole(roles.guardian, acc.salesManagerGuardian, 0);
+
+        vm.prank(acc.salesManagerGuardian);
+        p.salesManager.setEmergencyPause();
+
+        assertTrue(p.salesManager.emergencyPaused());
+    }
+
+    function test_unsetEmergencyPause_requires_schedule_by_protocol_admin() public {
+        address protocolAdmin = acc.user1;
+
+        vm.prank(acc.multisig);
+        p.accessManager.grantRole(roles.guardian, acc.salesManagerGuardian, 0);
+        vm.prank(acc.salesManagerGuardian);
+        p.salesManager.setEmergencyPause();
+        assertTrue(p.salesManager.emergencyPaused());
+
+        // Grant PROTOCOL_ADMIN_ROLE with 60s execution delay (reduced for test speed; production uses 259200s)
+        vm.prank(acc.multisig);
+        p.accessManager.grantRole(roles.admin, protocolAdmin, 60);
+
+        bytes memory data = abi.encodeWithSelector(SalesManager.unsetEmergencyPause.selector);
+
+        // Direct call reverts
+        vm.prank(protocolAdmin);
+        vm.expectRevert();
+        p.salesManager.unsetEmergencyPause();
+
+        // Schedule + warp 60s + execute succeeds
+        vm.prank(protocolAdmin);
+        IAccessManagerOps(address(p.accessManager)).schedule(address(p.salesManager), data, 0);
+        vm.warp(block.timestamp + 60);
+        vm.prank(protocolAdmin);
+        IAccessManagerOps(address(p.accessManager)).execute(address(p.salesManager), data);
+
+        assertFalse(p.salesManager.emergencyPaused());
+    }
+
+    function test_parity_salesmanager_permissions_match_config() public view {
+        _assertFunctionRole(address(p.salesManager), SalesManager.setEmergencyPause.selector, roles.guardian);
+        _assertFunctionRole(address(p.salesManager), SalesManager.unsetEmergencyPause.selector, roles.admin);
+        _assertFunctionRole(address(p.salesManager), SalesManager.createSale.selector, roles.salesOperator);
+        _assertFunctionRole(address(p.salesManager), SalesManager.cancelSale.selector, roles.salesOperator);
+        _assertFunctionRole(address(p.salesManager), SalesManager.withdrawFunds.selector, roles.fundsAdmin);
+        _assertFunctionRole(address(p.salesManager), IUUPSUpgradeableLike.upgradeTo.selector, roles.upgrader);
+    }
+
+    function _assertFunctionRole(address target, bytes4 selector, uint64 expectedRole) internal view {
+        uint64 actual = IAccessManagerOps(address(p.accessManager)).getTargetFunctionRole(target, selector);
+        assertEq(actual, expectedRole);
     }
 
     function _implementationOf(address proxy) internal view returns (address) {
