@@ -10,7 +10,7 @@ import {IGovernance} from "./governance/IGovernance.sol";
 /**
  * @title TokenController
  * @author CoinDistrict
- * @dev Version: 1.0.0-rc3
+ * @dev Version: 1.0.0-rc3-low-delays
  * @notice Upgradeable controller that acts as ERC-3643 Token agent and provides granular capability gating
  */
 contract TokenController is ITokenController, Initializable, UUPSUpgradeable {

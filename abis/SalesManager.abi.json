@@ -190,54 +190,61 @@
     ],
     "outputs": [
       {
-        "name": "share",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "paymentTokensAllowed",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "fundsRecipient",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "remainingSupply",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "priceUsdPerShare",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "start",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "deadline",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "shareDecimals",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "active",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "paused",
-        "type": "bool",
-        "internalType": "bool"
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ISalesManager.Sale",
+        "components": [
+          {
+            "name": "share",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "paymentTokensAllowed",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "fundsRecipient",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "remainingSupply",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "priceUsdPerShare",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "shareDecimals",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "paused",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -1106,5 +1113,190 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AmountInvalid",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmergencyAlreadyPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmergencyNotPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmergencyPausedErr",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FiatOrderReferenceAlreadyFulfilled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidDeadline",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFiatOrderReference",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidGovernance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMaxPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOracle",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOracleDelay",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRecipient",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidStart",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MaxPaymentExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoPaymentTokens",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OracleNotConfigured",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PaymentTokenNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PriceAboveCeiling",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PriceNotUpdated",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleAlreadyPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleDoesNotExist",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleEnded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleNotPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaleNotStarted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SalePausedErr",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StalePrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SupplyExceedsCap",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferAmountMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UseWithdrawFundsForPaymentTokens",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroCost",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroSupply",
+    "inputs": []
   }
 ]

@@ -49,5 +49,10 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "MaxSupplyBelowCurrentSupply",
+    "inputs": []
   }
 ]

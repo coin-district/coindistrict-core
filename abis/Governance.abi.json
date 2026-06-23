@@ -85,5 +85,10 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidAccessManager",
+    "inputs": []
   }
 ]

@@ -504,5 +504,95 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ClaimIssuerLengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CustomTokenAgentsNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IRSNot0OrOwnedByTREXFactory",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidGovernanceAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMaxSupplyModuleAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSalesManagerAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTREXFactoryAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTokenControllerAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Max5ClaimTopics",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Max5IRAgents",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Max5Issuers",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Max5TokenAgents",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MaxSupplyModuleNotSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MaxSupplyRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOwnerOfTREXFactory",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SaltAlreadyUsed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SymbolAlreadyUsed",
+    "inputs": []
   }
 ]
