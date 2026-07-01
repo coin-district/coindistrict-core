@@ -6,7 +6,7 @@ import {AccessManager} from "@openzeppelin/contracts-v5/access/manager/AccessMan
 /**
  * @title Governance
  * @author CoinDistrict
- * @dev Version: 1.0.0-rc3-low-delays
+ * @dev Version: 1.0.0-rc4-low-delays
  * @notice Centralized governance contract using OpenZeppelin AccessManager
  * @dev Compiled with Solidity 0.8.22 to use AccessManager from OpenZeppelin 5.x
  * This contract acts as a bridge between 0.8.17 protocol contracts and 0.8.22 AccessManager

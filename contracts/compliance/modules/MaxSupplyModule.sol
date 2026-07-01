@@ -7,7 +7,7 @@ import {IMaxSupplyModule} from "./IMaxSupplyModule.sol";
 /**
  * @title MaxSupplyModule
  * @author CoinDistrict
- * @dev Version: 1.0.0-rc3-low-delays
+ * @dev Version: 1.0.0-rc4-low-delays
  * @notice MaxSupplyModule for enforcing max supply on ERC-3643 shares
  * See {IMaxSupplyModule} for usage and more details.
  */

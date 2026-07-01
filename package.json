@@ -1,6 +1,6 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "1.0.0-rc3-low-delays",
+  "version": "1.0.0-rc4-low-delays",
   "private": false,
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
