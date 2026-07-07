@@ -2,7 +2,7 @@
 
 Smart contract suite for CoinDistrict, built around the ERC‑3643 standard and deployed via an upgradeable, governance‑controlled stack.
 
-**License: GPL-3.0** — This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
+**License: GPL-3.0** — This project is licensed under the GNU General Public License v3.0. See the [LICENSE.md](LICENSE.md) file for details.
 
 ---
 
@@ -15,13 +15,14 @@ Smart contract suite for CoinDistrict, built around the ERC‑3643 standard and 
 
 - **Tooling**
   - **Foundry** (`forge`, `cast`, `anvil`) for build, test, and debugging.
-  - **Husky** for Git hooks (automatically runs `forge fmt` before commits).
+  - **Husky** for Git hooks (automatically runs `pnpm format` and exports contract sources before commits).
 
 - **External Contracts / Libraries (vendored under `lib/`)**
   - **OpenZeppelin Contracts 4.x** and **Upgradeable**: token, proxy, and UUPS utilities.
   - **OpenZeppelin Contracts v5**: governance and `AccessManager`.
   - **ERC‑3643 suite**: compliance‑aware security token stack (`Token`, registries, modular compliance, TREX factory).
   - **OnchainID**: identity, claims, and gateways required by ERC‑3643.
+  - **Chainlink Brownie Contracts**: price feed interfaces used for payment token USD oracle integration.
   - **forge‑std**: testing utilities, `stdJson`, and Foundry helpers.
 
 Remappings for all of the above are defined in `foundry.toml` / `remappings.txt`.
@@ -53,8 +54,6 @@ Remappings for all of the above are defined in `foundry.toml` / `remappings.txt`
 
 - **Root configuration & metadata**
   - **`foundry.toml`** – Foundry config (sources, libs, remappings, `via_ir`, fs permissions for `config/`).
-  - **`roles-and-delays.toml`** – Human‑readable mirror of the role/delay configuration used during design; `config/role-and-delays.json` is the machine‑readable version.
-  - **`docs/role-config-spec.md`** – Design spec and rationale for the shared role/delay config between `-core` and `-ops`.
   - **`lib/`** – Vendored external dependencies (OpenZeppelin, ERC‑3643, OnchainID, forge‑std, etc.).
   - **`package.json` / `pnpm-lock.yaml`** – JS tooling for Git hooks (Husky) (no runtime JS/TS stack in this repo).
 
@@ -79,6 +78,8 @@ Dependencies are vendored under `lib/`. If you need to refresh or pin them from 
   - `forge install ERC-3643/erc-3643@4.1.3`
 - OnchainID:
   - `forge install onchain-id/solidity@2.2.1`
+- Chainlink Brownie Contracts:
+  - `forge install smartcontractkit/chainlink-brownie-contracts@1.3.0`
 
 After installation, `foundry.toml` remappings will resolve imports like `@openzeppelin/contracts/...`, `@erc3643org/erc-3643/...`, and `@onchain-id/solidity/...`.
 
@@ -98,7 +99,7 @@ After installation, `foundry.toml` remappings will resolve imports like `@openze
 
 - **Format Solidity**
   - Run: `forge fmt` to format all Solidity files.
-  - Formatting is automatically run before each commit via Husky pre-commit hook.
+  - Formatting and contract source export are automatically run before each commit via Husky pre-commit hook.
 
 ---
 
@@ -120,7 +121,7 @@ The protocol uses **OpenZeppelin `AccessManager`** plus a thin `Governance` cont
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
 
-- **Full license text**: See [LICENSE](LICENSE) file in the repository root.
+- **Full license text**: See [LICENSE.md](LICENSE.md) file in the repository root.
 - **Contract headers**: All Solidity contracts include `//SPDX-License-Identifier: GPL-3.0` headers.
 - **Package metadata**: Declared in `package.json` as `"license": "GPL-3.0"`.
 
