@@ -8,6 +8,10 @@
   },
   "description": "Foundry-based ERC-3643 smart contracts for Coin District",
   "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coin-district/coindistrict-core.git"
+  },
   "scripts": {
     "build": "bash scripts/generate-abis.sh && bash scripts/export-contracts-source.sh",
     "build:abis": "bash scripts/generate-abis.sh",
