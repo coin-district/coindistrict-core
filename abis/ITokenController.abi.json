@@ -337,5 +337,65 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "BurnCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CapsAlreadySet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CapsNotInitialized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ForceTransferCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ForcedTransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FreezeCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidGovernance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MintCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PauseCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RecoverCapabilityDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RecoveryFailed",
+    "inputs": []
   }
 ]
