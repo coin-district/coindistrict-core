@@ -1,6 +1,6 @@
 {
   "name": "@coin-district/coindistrict-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
