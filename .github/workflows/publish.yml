@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -15,6 +16,7 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm-production
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,9 +54,7 @@ jobs:
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           if [[ "$VERSION" == *-* ]]; then
-            pnpm publish --no-git-checks --tag rc
+            npm publish --tag rc
           else
-            pnpm publish --no-git-checks
+            npm publish
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
